@@ -73,6 +73,7 @@ def parse_info(item, url):
 def parse_page(url, referer=''):
     global COL
     count = 0
+    stop = False
     base_url = 'http://www.cdgy.gov.cn'
     source = get_html(url, referer=referer, byte_=True)
     if source is None:
@@ -82,6 +83,7 @@ def parse_page(url, referer=''):
     for sel in selector.xpath(regex):
         link = base_url + sel.xpath(r'li[1]/a/@href')[0]
         if COL.find_one({'url': link}):
+            stop = True
             logging.warning(f'{link} is download already')
             continue
         text = sel.xpath(r'li[2]/text()')[0]
@@ -99,6 +101,7 @@ def parse_page(url, referer=''):
         if count % 100:
             print(f'count: {count}')
         time.sleep(2)
+    return stop
 
 
 def parse_pages(page_count):
@@ -107,7 +110,8 @@ def parse_pages(page_count):
     base_url = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx_{}.shtml'
     for i in range(2, page_count+1):
         url = base_url.format(i)
-        parse_page(url, referer=referer)
+        if parse_page(url, referer=referer):
+            break
         referer = url
         time.sleep(2)
 

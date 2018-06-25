@@ -68,6 +68,7 @@ def parse_info(item, url):
 def parse_page(url):
     global COL
     count = 0
+    stop = False
     source = get_html(url)
     if source is None:
         return
@@ -76,6 +77,7 @@ def parse_page(url):
     for sel in selector.xpath(regex):
         link = sel.xpath(r'td[1]/a/@href')[0]
         if COL.find_one({'url': link}):
+            stop = True
             logging.warning(f'{link} is download already')
             continue
         try:
@@ -93,13 +95,15 @@ def parse_page(url):
         if count % 100:
             print(f'count: {count}')
         time.sleep(2)
+    return stop
 
 
 def parse_pages(page_count):
     base_url = 'http://www.cdht.gov.cn/zwgktzgg/index_{}.jhtml'
     for i in range(1, page_count+1):
         url = base_url.format(i)
-        parse_page(url)
+        if parse_page(url):
+            break
         time.sleep(2)
 
 
