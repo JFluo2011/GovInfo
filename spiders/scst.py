@@ -81,7 +81,7 @@ def parse_page(url, type_):
     base_url = 'http://www.scst.gov.cn'
     source = get_html(url, byte_=True)
     if source is None:
-        return
+        return False
     selector = etree.HTML(source)
     for sel in selector.xpath(r'//div[contains(@class, "news_right")]//h2'):
         link = base_url + sel.xpath(r'a/@href')[0]

@@ -71,7 +71,7 @@ def parse_page(url):
     stop = False
     source = get_html(url)
     if source is None:
-        return
+        return False
     selector = etree.HTML(source)
     regex = '//div[@class="news-list-list"]/table[@class="table"]/tbody/tr'
     for sel in selector.xpath(regex):
