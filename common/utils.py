@@ -1,9 +1,11 @@
 import os
+import copy
 import logging
 import random
 from logging.handlers import RotatingFileHandler
 
 import redis
+import requests
 
 from common.mongodb_client import MongodbClient
 from local_config import MONGODB_DB, MONGODB_PORT, MONGODB_SERVER
@@ -42,3 +44,17 @@ def get_proxy(redis_client):
 
 def get_redis_client():
     return redis.Redis(host=REDIS_SERVER, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+
+
+def get_html(url, method='GET', params=None, data=None, headers=None, byte_=False):
+    # proxies = {'http': get_proxy(REDIS_CLIENT)}
+    proxies = None
+    try:
+        r = requests.request(url=url, method=method, params=params, data=data, headers=headers, proxies=proxies)
+    except Exception as err:
+        logging.error(f'{url}: download error, {err.__class__.__name__}: {str(err)}')
+        return None
+    if byte_:
+        return r.content
+    else:
+        return r.text

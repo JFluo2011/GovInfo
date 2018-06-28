@@ -7,7 +7,7 @@ import logging
 import requests
 from lxml import etree
 
-from common.utils import get_col, setup_log, get_proxy, get_redis_client
+from common.utils import get_col, setup_log, get_proxy, get_redis_client, get_html
 from local_config import MONGODB_COLLECTION
 
 
@@ -22,28 +22,13 @@ HEADERS = {
     'Upgrade-Insecure-Requests': '1',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
 }
+
 SESSION = requests.session()
 
-COL = get_col(MONGODB_COLLECTION)
+# COL = get_col(MONGODB_COLLECTION)
+COL = get_col('cdht')
 REDIS_CLIENT = get_redis_client()
-
-
-def get_html(url, referer='', byte_=False):
-    global HEADERS
-    headers = copy.deepcopy(HEADERS)
-    if referer != '':
-        headers.update({'Referer': referer})
-    # proxies = {'http': get_proxy(REDIS_CLIENT)}
-    proxies = None
-    try:
-        r = requests.get(url, headers=headers, proxies=proxies)
-    except Exception as err:
-        logging.error(f'{url}: download error, {err.__class__.__name__}: {str(err)}')
-        return None
-    if byte_:
-        return r.content
-    else:
-        return r.text
+COUNT = 0
 
 
 def insert_item(item):
@@ -52,7 +37,9 @@ def insert_item(item):
 
 
 def parse_info(item, url):
-    source = get_html(url)
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
+    source = get_html(url, headers=headers)
     if source is None:
         return
     selector = etree.HTML(source)
@@ -67,9 +54,11 @@ def parse_info(item, url):
 
 def parse_page(url):
     global COL
-    count = 0
+    global COUNT
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
     stop = False
-    source = get_html(url)
+    source = get_html(url, headers=headers)
     if source is None:
         return False
     selector = etree.HTML(source)
@@ -83,19 +72,22 @@ def parse_page(url):
         try:
             item = {
                 'url': link,
+                'unique_id': link,
                 'title': sel.xpath(r'td[1]/a/text()')[0],
-                'promulgator': sel.xpath(r'td[2]/text()')[0],
+                'summary': '',
+                'source': sel.xpath(r'td[2]/text()')[0],
                 'date': sel.xpath(r'td[3]/span/text()')[0],
                 'origin': 'cdht',
+                'type': 'web'
             }
         except Exception as err:
             logging.error(f'{url}: {err.__class__.__name__}: {str(err)}')
             continue
         parse_info(item, link)
-        count += 1
-        if count % 100 == 0:
-            print(f'count: {count}')
-        time.sleep(2)
+        COUNT += 1
+        if COUNT % 100 == 0:
+            print(f'count: {COUNT}')
+        time.sleep(3)
     return stop
 
 
@@ -103,13 +95,16 @@ def parse_pages(page_count):
     base_url = 'http://www.cdht.gov.cn/zwgktzgg/index_{}.jhtml'
     for i in range(1, page_count+1):
         url = base_url.format(i)
-        if parse_page(url):
-            break
-        time.sleep(2)
+        parse_page(url)
+        # if parse_page(url):
+        #     break
+        time.sleep(3)
 
 
 def parse_page_count(url):
-    source = get_html(url=url)
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
+    source = get_html(url=url, headers=headers)
     page_count = re.findall(r'共\d+条记录\s*\d+/(\d+)\s*页|$', source)[0]
     if page_count == '':
         raise Exception('get page count failed')
@@ -119,9 +114,9 @@ def parse_page_count(url):
 
 def run(url):
     global COL
-    COL.ensure_index("url", unique=True)
+    COL.ensure_index("unique_id", unique=True)
     page_count = parse_page_count(url)
-    time.sleep(2)
+    time.sleep(3)
     parse_pages(page_count)
 
 

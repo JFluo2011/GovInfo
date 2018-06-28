@@ -7,7 +7,7 @@ import logging
 import requests
 from lxml import etree
 
-from common.utils import get_col, setup_log, get_proxy, get_redis_client
+from common.utils import get_col, setup_log, get_proxy, get_redis_client, get_html
 from local_config import MONGODB_COLLECTION
 
 
@@ -23,26 +23,10 @@ HEADERS = {
 }
 SESSION = requests.session()
 
-COL = get_col(MONGODB_COLLECTION)
+# COL = get_col(MONGODB_COLLECTION)
+COL = get_col('scst')
 REDIS_CLIENT = get_redis_client()
-
-
-def get_html(url, referer='', byte_=False):
-    global HEADERS
-    headers = copy.deepcopy(HEADERS)
-    if referer != '':
-        headers.update({'Referer': referer})
-    # proxies = {'http': get_proxy(REDIS_CLIENT)}
-    proxies = None
-    try:
-        r = requests.get(url, headers=headers, proxies=proxies)
-    except Exception as err:
-        logging.error(f'{url}: download error, {err.__class__.__name__}: {str(err)}')
-        return None
-    if byte_:
-        return r.content
-    else:
-        return r.text
+COUNT = 0
 
 
 def insert_item(item):
@@ -51,7 +35,9 @@ def insert_item(item):
 
 
 def parse_info(item, url):
-    source = get_html(url, byte_=True)
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
+    source = get_html(url, headers=headers, byte_=True)
     if source is None:
         return
     selector = etree.HTML(source)
@@ -63,7 +49,7 @@ def parse_info(item, url):
     date += (' ' + time_) if time_ != '' else ''
     if '本站原创' in promulgator:
         promulgator = '四川省科学技术厅'
-    item.update({'date': date, 'promulgator': promulgator})
+    item.update({'date': date, 'source': promulgator})
     try:
         content = selector.xpath(r'//div[@class="newsCon"]')[0].xpath('string(.)')
         item.update({'content': content})
@@ -73,12 +59,14 @@ def parse_info(item, url):
         insert_item(item)
 
 
-def parse_page(url, type_):
+def parse_page(url):
     global COL
-    count = 0
+    global COUNT
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
     stop = False
     base_url = 'http://www.scst.gov.cn'
-    source = get_html(url, byte_=True)
+    source = get_html(url, headers=headers, byte_=True)
     if source is None:
         return False
     selector = etree.HTML(source)
@@ -90,15 +78,17 @@ def parse_page(url, type_):
             continue
         item = {
             'url': link,
+            'unique_id': link,
             'title': sel.xpath(r'a/@title')[0],
             'origin': 'scst',
-            'type': type_,
+            'summary': '',
+            'type': 'web',
         }
         parse_info(item, link)
-        count += 1
-        if count % 100 == 0:
-            print(f'count: {count}')
-        time.sleep(2)
+        COUNT += 1
+        if COUNT % 100 == 0:
+            print(f'count: {COUNT}')
+        time.sleep(3)
     return stop
 
 
@@ -109,13 +99,16 @@ def parse_pages(page_count, type_):
         base_url = 'http://www.scst.gov.cn/gs/index_{}.jhtml'
     for i in range(1, page_count+1):
         url = base_url.format(i)
-        if parse_page(url, type_):
-            break
+        parse_page(url)
+        # if parse_page(url):
+        #     break
         time.sleep(2)
 
 
 def parse_page_count(url):
-    text = get_html(url=url)
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
+    text = get_html(url=url, headers=headers)
     page_count = re.findall(r'共\d+条记录\s*\d+/(\d+)\s*页|$', text)[0]
     if page_count == '':
         raise Exception('get page count failed')
@@ -125,7 +118,7 @@ def parse_page_count(url):
 
 def run(url, type_):
     global COL
-    COL.ensure_index("url", unique=True)
+    COL.ensure_index("unique_id", unique=True)
     page_count = parse_page_count(url)
     time.sleep(2)
     parse_pages(page_count, type_)

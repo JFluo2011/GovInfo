@@ -26,9 +26,9 @@ HEADERS = {
 }
 SESSION = requests.session()
 
-# COL = get_col(MONGODB_COLLECTION)
-COL = get_col('test')
+COL = get_col(MONGODB_COLLECTION)
 REDIS_CLIENT = get_redis_client()
+COUNT = 0
 
 
 def get_html(url, method='GET', params=None, data=None, headers=None, byte_=False):
@@ -71,10 +71,10 @@ def parse_info(item, url, referer=''):
         insert_item(item)
 
 
-def parse_page(url, params, origin, referer=''):
+def parse_page(url, wx_info, params, referer=''):
     global COL
     global HEADERS
-    count = 0
+    global COUNT
     stop = False
     headers = copy.deepcopy(HEADERS)
     headers.update({'Referer': referer})
@@ -82,40 +82,43 @@ def parse_page(url, params, origin, referer=''):
     if source is None:
         return False
     selector = etree.HTML(source)
-    for sel in selector.xpath(r'//li[contains(@id="sogou_vr_")]'):
-        link = sel.xpath(r'h3/a/@href')[0]
+    for sel in selector.xpath(r'//li[contains(@id, "sogou_vr_")]'):
         unique_id = sel.xpath(r'./@d')[0]
+        link = sel.xpath(r'div/h3/a/@href')[0]
         if COL.find_one({'unique_id': unique_id}):
             stop = True
             logging.warning(f'{link} is download already')
             continue
         try:
+            if sel.xpath(r'div/div/a/text()')[0] != wx_info.name:
+                logging.warning(f'{url}: {params}\n{link}: is not publish from {wx_info.name}')
+                continue
             item = {
                 'url': link,
                 'unique_id': unique_id,
-                'summary': '',
-                'date': time.strftime("%Y-%m-%d", time.localtime(int(sel.xpath(r'div/@t')[0]))),
-                'source': sel.xpath(r'div/a/text()')[0],
-                'origin': origin,
+                'summary': sel.xpath(r'./div/p[@class="txt-info"]')[0].xpath('string(.)'),
+                'date': time.strftime("%Y-%m-%d", time.localtime(int(sel.xpath(r'div/div/@t')[0]))),
+                'source': sel.xpath(r'div/div/a/text()')[0],
+                'origin': wx_info.origin,
                 'type': 'wxgzh',
             }
         except Exception as err:
-            logging.error(f'{url}: {err.__class__.__name__}: {str(err)}')
+            logging.error(f'{url}: {params}\n{link}:{err.__class__.__name__}: {str(err)}')
             continue
         parse_info(item, link, referer=referer)
-        count += 1
-        # if count % 100 == 0:
-        #     print(f'count: {count}')
+        COUNT += 1
+        if COUNT % 100 == 0:
+            print(f'count: {COUNT}')
         time.sleep(5)
     return stop
 
 
-def parse_pages(url, params, origin, referer=''):
+def parse_pages(url, wx_info, params, referer=''):
     page_count = parse_page_count(url, params=params, referer=referer)
     time.sleep(5)
     for page in range(1, page_count+1):
         params.update({'page': page})
-        if parse_page(url, params=params, origin=origin, referer=referer):
+        if parse_page(url, wx_info, params=params, referer=referer):
             break
         time.sleep(5)
 
@@ -127,20 +130,31 @@ def parse_page_count(url, params, referer=''):
     source = get_html(url, params=params, headers=headers)
     if source is None:
         return
-    page_count = re.findall(r'找到约(\d+)条结果|$', source)[0]
-    if page_count == '':
+    total = re.findall(r'找到约(\d+)条结果|$', source)[0]
+    if total == '':
         raise Exception('get page count failed')
     else:
-        return int(page_count)
+        total = int(total)
+        page_count = total//10 if (total % 10 == 0) else (total//10 + 1)
+        if page_count > 10:
+            raise Exception(f'{url} page too more')
+        return page_count
 
 
-def parse(url, params, origin, referer=''):
-    # 'ft': '2018-04-27',
-    # 'et': '2018-05-27',
+def parse(url, wx_info):
+    params = {
+        'type': '2',
+        'ie': 'utf8',
+        'query': wx_info.name,
+        'tsn': '5',
+        'interation': '',
+        'wxid': wx_info.wx_id,
+        'usip': wx_info.name,
+    }
     for ft, et in get_date():
         params.update({'ft': ft, 'et': et})
-        referer = referer.format(ft, et)
-        parse_pages(url, params, origin=origin, referer=referer)
+        referer = wx_info.referer.format(ft, et)
+        parse_pages(url, wx_info, params, referer=referer)
         time.sleep(5)
 
 
@@ -168,31 +182,24 @@ def get_date(start_year=2012, start_month='08', start_day='01'):
 def run(url, wx_info):
     global COL
     COL.ensure_index("unique_id", unique=True)
-    params = {
-        'type': '2',
-        'ie': 'utf8',
-        'query': wx_info.name,
-        'tsn': '5',
-        'interation': '',
-        'wxid': wx_info.wx_id,
-        'usip': wx_info.name,
-    }
-    parse(url, params, origin=wx_info.origin, referer=wx_info.referer)
+    parse(url, wx_info)
 
 
 def main():
+    global COUNT
     setup_log(logging.INFO, os.path.join(os.path.abspath('.'), '../logs', 'wxgzh.log'))
     lst = [
         WXInfo(name='成都高新', wx_id='oIWsFtzdz_uTS1UC9PKpVWMvDyS4', origin='cdhtwx',
                referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0&'
                         'tsn=5&ft={}&et={}&interation=&wxid=&usip=')),
-        # WXInfo(name='成都高新', wx_id='oIWsFtzdz_uTS1UC9PKpVWMvDyS4',
-        #        referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0&'
-        #                 'tsn=5&ft=2018-04-27&et=2018-05-27&interation=&wxid=&usip='))
+        WXInfo(name='成都工业和信息化', wx_id='oIWsFt_3i5qYBzUSy7UK7vm3EjpA', origin='cdgyhxxh',
+               referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0&'
+                        'tsn=5&ft{}&et={}&interation=&wxid=&usip='))
     ]
     for wx_info in lst:
         url = 'http://weixin.sogou.com/weixin'
         run(url, wx_info)
+    print(COUNT)
 
 
 if __name__ == '__main__':
