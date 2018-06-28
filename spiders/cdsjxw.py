@@ -77,7 +77,7 @@ def parse_page(url, referer=''):
     base_url = 'http://www.cdgy.gov.cn'
     source = get_html(url, referer=referer, byte_=True)
     if source is None:
-        return
+        return False
     selector = etree.HTML(source)
     regex = '//div[@class="newlist_left_cont"]/ul'
     for sel in selector.xpath(regex):
