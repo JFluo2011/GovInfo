@@ -82,19 +82,22 @@ def parse_page(url, params, origin, referer=''):
     if source is None:
         return False
     selector = etree.HTML(source)
-    for sel in selector.xpath(r'//div[@class="txt-box"]'):
+    for sel in selector.xpath(r'//li[contains(@id="sogou_vr_")]'):
         link = sel.xpath(r'h3/a/@href')[0]
-        signature = re.findall(r'signature=(.{64})', link)[0]
-        if COL.find_one({'url': signature}):
+        unique_id = sel.xpath(r'./@d')[0]
+        if COL.find_one({'unique_id': unique_id}):
             stop = True
             logging.warning(f'{link} is download already')
             continue
         try:
             item = {
-                'url': signature,
+                'url': link,
+                'unique_id': unique_id,
+                'summary': '',
                 'date': time.strftime("%Y-%m-%d", time.localtime(int(sel.xpath(r'div/@t')[0]))),
-                'promulgator': sel.xpath(r'div/a/text()')[0],
+                'source': sel.xpath(r'div/a/text()')[0],
                 'origin': origin,
+                'type': 'wxgzh',
             }
         except Exception as err:
             logging.error(f'{url}: {err.__class__.__name__}: {str(err)}')
@@ -164,7 +167,7 @@ def get_date(start_year=2012, start_month='08', start_day='01'):
 
 def run(url, wx_info):
     global COL
-    COL.ensure_index("url", unique=True)
+    COL.ensure_index("unique_id", unique=True)
     params = {
         'type': '2',
         'ie': 'utf8',
@@ -178,7 +181,7 @@ def run(url, wx_info):
 
 
 def main():
-    setup_log(logging.INFO, os.path.join(os.path.abspath('.'), '../logs', 'cdht.log'))
+    setup_log(logging.INFO, os.path.join(os.path.abspath('.'), '../logs', 'wxgzh.log'))
     lst = [
         WXInfo(name='成都高新', wx_id='oIWsFtzdz_uTS1UC9PKpVWMvDyS4', origin='cdhtwx',
                referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0&'
