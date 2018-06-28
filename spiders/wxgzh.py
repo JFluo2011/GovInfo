@@ -26,15 +26,15 @@ HEADERS = {
 }
 SESSION = requests.session()
 
-COL = get_col(MONGODB_COLLECTION)
+# COL = get_col(MONGODB_COLLECTION)
+COL = get_col('test')
 REDIS_CLIENT = get_redis_client()
 
 
-def get_html(url, method='GET', params=None, data=None, referer='', byte_=False):
-    global HEADERS
-    headers = copy.deepcopy(HEADERS)
-    if referer != '':
-        headers.update({'Referer': referer})
+def get_html(url, method='GET', params=None, data=None, headers=None, byte_=False):
+    if headers is None:
+        global HEADERS
+        headers = copy.deepcopy(HEADERS)
     # proxies = {'http': get_proxy(REDIS_CLIENT)}
     proxies = None
     try:
@@ -53,14 +53,18 @@ def insert_item(item):
     COL.insert(item)
 
 
-def parse_info(item, url):
-    source = get_html(url)
+def parse_info(item, url, referer=''):
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
+    headers.update({'Referer': referer, 'Host': 'mp.weixin.qq.com'})
+    source = get_html(url, headers=headers)
     if source is None:
         return
     selector = etree.HTML(source)
+    title = selector.xpath(r'//*[@id="activity-name"]/text()')[0]
     try:
-        content = selector.xpath(r'//div[@id="d_content"]')[0].xpath('string(.)')
-        item.update({'content': content})
+        content = selector.xpath(r'//*[@id="js_content"]')[0].xpath('string(.)')
+        item.update({'content': content, 'title': title})
     except Exception as err:
         logging.error(f'{url}: {err.__class__.__name__}: {str(err)}')
     finally:
@@ -69,32 +73,37 @@ def parse_info(item, url):
 
 def parse_page(url, params, origin, referer=''):
     global COL
+    global HEADERS
     count = 0
     stop = False
-    source = get_html(url)
+    headers = copy.deepcopy(HEADERS)
+    headers.update({'Referer': referer})
+    source = get_html(url, params=params, headers=headers)
     if source is None:
         return False
     selector = etree.HTML(source)
-    for sel in selector.xpath(r'//div[@class="s-p'):
-        link = sel.xpath(r'a/@href')[0]
-        if COL.find_one({'url': link}):
+    for sel in selector.xpath(r'//div[@class="txt-box"]'):
+        link = sel.xpath(r'h3/a/@href')[0]
+        signature = re.findall(r'signature=(.{64})', link)[0]
+        if COL.find_one({'url': signature}):
             stop = True
             logging.warning(f'{link} is download already')
             continue
         try:
             item = {
-                'url': link,
-                'date': sel.xpath(r'span/text()')[0],
-                'promulgator': sel.xpath(r'a/text()')[0],
+                'url': signature,
+                'date': time.strftime("%Y-%m-%d", time.localtime(int(sel.xpath(r'div/@t')[0]))),
+                'promulgator': sel.xpath(r'div/a/text()')[0],
                 'origin': origin,
             }
         except Exception as err:
             logging.error(f'{url}: {err.__class__.__name__}: {str(err)}')
             continue
-        parse_info(item, link)
-        if count % 100:
-            print(f'count: {count}')
-        time.sleep(2)
+        parse_info(item, link, referer=referer)
+        count += 1
+        # if count % 100 == 0:
+        #     print(f'count: {count}')
+        time.sleep(5)
     return stop
 
 
@@ -109,7 +118,10 @@ def parse_pages(url, params, origin, referer=''):
 
 
 def parse_page_count(url, params, referer=''):
-    source = get_html(url, params=params, referer=referer)
+    global HEADERS
+    headers = copy.deepcopy(HEADERS)
+    headers.update({'Referer': referer})
+    source = get_html(url, params=params, headers=headers)
     if source is None:
         return
     page_count = re.findall(r'找到约(\d+)条结果|$', source)[0]
@@ -124,6 +136,7 @@ def parse(url, params, origin, referer=''):
     # 'et': '2018-05-27',
     for ft, et in get_date():
         params.update({'ft': ft, 'et': et})
+        referer = referer.format(ft, et)
         parse_pages(url, params, origin=origin, referer=referer)
         time.sleep(5)
 
@@ -145,7 +158,7 @@ def get_date(start_year=2012, start_month='08', start_day='01'):
         date_lst.append((f'{y}-{str_m1}-02', f'{y}-{str_m2}-01'))
     str_month = str(month) if month >= 10 else f"0{month}"
     str_day = str(day) if day >= 10 else f"0{day}"
-    date_lst.append((f'{y}-{str_month}-02', f'{y}-{str_month}-{str_day}'))
+    date_lst.append((f'{year}-{str_month}-02', f'{year}-{str_month}-{str_day}'))
     return list(reversed(date_lst))
 
 
@@ -169,7 +182,7 @@ def main():
     lst = [
         WXInfo(name='成都高新', wx_id='oIWsFtzdz_uTS1UC9PKpVWMvDyS4', origin='cdhtwx',
                referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0&'
-                        'tsn=5&ft=2018-04-27&et=2018-05-27&interation=&wxid=&usip=')),
+                        'tsn=5&ft={}&et={}&interation=&wxid=&usip=')),
         # WXInfo(name='成都高新', wx_id='oIWsFtzdz_uTS1UC9PKpVWMvDyS4',
         #        referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0&'
         #                 'tsn=5&ft=2018-04-27&et=2018-05-27&interation=&wxid=&usip='))

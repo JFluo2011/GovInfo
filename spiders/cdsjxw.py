@@ -98,7 +98,8 @@ def parse_page(url, referer=''):
             'origin': 'cdsjxw',
         }
         parse_info(item, link)
-        if count % 100:
+        count += 1
+        if count % 100 == 0:
             print(f'count: {count}')
         time.sleep(2)
     return stop
