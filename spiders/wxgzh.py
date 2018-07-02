@@ -67,8 +67,8 @@ def parse_info(item, url, referer=''):
     if source is None:
         return -1
     selector = etree.HTML(source)
-    title = selector.xpath(r'//*[@id="activity-name"]/text()')[0]
     try:
+        title = selector.xpath(r'//*[@id="activity-name"]/text()')[0]
         content = selector.xpath(r'//*[@id="js_content"]')[0].xpath('string(.)')
         item.update({'content': content, 'title': title})
     except Exception as err:
