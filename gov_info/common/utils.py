@@ -1,19 +1,49 @@
 import os
-import copy
 import logging
 import random
+from collections import namedtuple
 from logging.handlers import RotatingFileHandler
 
 import redis
 import requests
 
-from common.mongodb_client import MongodbClient
-from local_config import MONGODB_DB, MONGODB_PORT, MONGODB_SERVER
-from local_config import REDIS_DB, REDIS_PORT, REDIS_SERVER
+from gov_info.common.mongodb_client import MongodbClient
+from gov_info.common.local_config import MONGODB_DB, MONGODB_PORT, MONGODB_SERVER
+from gov_info.common.local_config import REDIS_DB, REDIS_PORT, REDIS_SERVER
 
 
 FORMAT = '%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s'
 DATEFMT = '%a, %d %b %Y %H:%M:%S'
+
+WXInfo = namedtuple('WXInfo', ['name', 'wx_id', 'origin', 'referer', 'location', 'tag'])
+
+
+class MyRFPDupeFilter(object):
+    def __init__(self, server, key, debug=False):
+        pass
+
+    @classmethod
+    def from_settings(cls, settings):
+        pass
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        pass
+
+    def request_seen(self, request):
+        pass
+
+    def request_fingerprint(self, request):
+        pass
+
+    def close(self, reason=''):
+        pass
+
+    def clear(self):
+        pass
+
+    def log(self, request, spider):
+        pass
 
 
 def get_col(col_name):

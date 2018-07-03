@@ -1,12 +1,11 @@
 import time
-import queue
 import json
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
-from local_config import proxies_urls
-from common.utils import get_redis_client
+from gov_info.common.local_config import proxies_urls
+from gov_info.common.utils import get_redis_client
 
 
 def insert_redis(redis_client, ip, ttl):

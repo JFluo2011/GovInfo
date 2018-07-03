@@ -7,9 +7,7 @@ import logging
 import requests
 from lxml import etree
 
-from common.utils import get_col, setup_log, get_proxy, get_redis_client
-from local_config import MONGODB_COLLECTION
-
+from gov_info.common.utils import get_col, setup_log, get_redis_client
 
 HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
