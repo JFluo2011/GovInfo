@@ -1,153 +1,102 @@
-import time
+# -*- coding: utf-8 -*-
 import re
-import os
 import copy
 import logging
 
-import requests
-from lxml import etree
+import scrapy
+from gov_info.items import GovInfoItem
 
-from gov_info.common.utils import get_col, setup_log, get_redis_client
-
-HEADERS = {
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Encoding': 'gzip, deflate',
-    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'Host': 'www.cdgy.gov.cn',
-    'Pragma': 'no-cache',
-    'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
-}
-
-# COL = get_col(MONGODB_COLLECTION)
-COL = get_col('cdsjxw')
-REDIS_CLIENT = get_redis_client()
-SESSION = requests.session()
-COUNT = 0
+from gov_info.settings import MONGODB_COLLECTION
+from gov_info.common.utils import get_col
 
 
-def get_html(url, method='GET', params=None, data=None, headers=None, byte_=False):
-    global SESSION
-    # proxies = {'http': get_proxy(REDIS_CLIENT)}
-    proxies = None
-    try:
-        r = SESSION.request(url=url, method=method, params=params, data=data, headers=headers, proxies=proxies)
-    except Exception as err:
-        logging.error(f'{url}: download error, {err.__class__.__name__}: {str(err)}')
-        return None
-    if byte_:
-        return r.content
-    else:
-        return r.text
-
-
-def insert_item(item):
-    global COL
-    COL.insert(item)
-
-
-def parse_info(item, url):
-    global HEADERS
-    headers = copy.deepcopy(HEADERS)
-    source = get_html(url, headers=headers, byte_=True)
-    if source is None:
-        return
-    selector = etree.HTML(source)
-    try:
-        content = selector.xpath(r'//div[@id="top"]')[0].xpath('string(.)')
-        item.update({'content': content})
-    except:
-        try:
-            content = selector.xpath(r'//div[@class="main-contshow"]')[0].xpath('string(.)')
-            item.update({'content': content})
-        except Exception as err:
-            logging.error(f'{url}: {err.__class__.__name__}: {str(err)}')
-    finally:
-        insert_item(item)
-
-
-def parse_page(url, referer=''):
-    global COL
-    global COUNT
-    global HEADERS
-    headers = copy.deepcopy(HEADERS)
-    headers.update({'referer': referer})
-    stop = False
+class CdsjxwSpider(scrapy.Spider):
+    name = 'cdsjxw'
+    download_delay = 5
+    mongo_col = get_col(MONGODB_COLLECTION)
+    mongo_col.ensure_index("unique_id", unique=True)
     base_url = 'http://www.cdgy.gov.cn'
-    source = get_html(url, headers=headers, byte_=True)
-    if source is None:
-        return False
-    selector = etree.HTML(source)
-    regex = '//div[@class="newlist_left_cont"]/ul'
-    for sel in selector.xpath(regex):
-        link = base_url + sel.xpath(r'li[1]/a/@href')[0]
-        if COL.find_one({'url': link}):
-            stop = True
-            logging.warning(f'{link} is download already')
-            continue
-        text = sel.xpath(r'li[2]/text()')[0]
-        text = ''.join(text.split())
-        text = re.sub(r'\s|:|：', '', text)
-        promulgator, date = re.findall(r'来源(.*?)发布时间(\d{4}-\d{2}-\d{2})', text)[0]
-        item = {
-            'url': link,
-            'unique_id': link,
-            'title': sel.xpath(r'li[1]/a/@title')[0],
-            'summary': '',
-            'source': promulgator,
-            'date': date,
-            'origin': 'cdsjxw',
-            'type': 'web'
-        }
-        parse_info(item, link)
-        COUNT += 1
-        if COUNT % 100 == 0:
-            print(f'count: {COUNT}')
-        time.sleep(2)
-    return stop
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Host': 'www.cdgy.gov.cn',
+        'Pragma': 'no-cache',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
+    }
 
+    custom_settings = {
+        'ITEM_PIPELINES': {
+            'gov_info.pipelines.GovInfoPipeline': 100,
+        },
+        'COOKIES_ENABLED': True
+    }
 
-def parse_pages(page_count):
-    parse_page('http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx.shtml')
-    referer = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx.shtml'
-    base_url = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx_{}.shtml'
-    for i in range(2, page_count+1):
-        url = base_url.format(i)
-        parse_page(url, referer=referer)
-        # if parse_page(url, referer=referer):
-        #     break
-        referer = url
-        time.sleep(3)
+    def start_requests(self):
+        url = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx.shtml'
+        yield scrapy.FormRequest(url, method='GET', headers=self.headers)
 
+    def parse(self, response):
+        page_count = re.findall(r'createPageHTML\(\'page_div\',(\d+),.*?\)|$'.encode('utf-8'), response.body)[0]
+        if page_count == b'':
+            raise Exception('get page count failed')
 
-def parse_page_count(url):
-    global HEADERS
-    headers = copy.deepcopy(HEADERS)
-    source = get_html(url=url, headers=headers)
-    if source is None:
-        return
-    page_count = re.findall(r'createPageHTML\(\'page_div\',(\d+),.*?\)|$', source)[0]
-    if page_count == '':
-        raise Exception('get page count failed')
-    else:
-        return int(page_count)
+        referer = response.url
+        base_url = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx_{}.shtml'
+        for i in range(2, int(page_count) + 1):
+            headers = copy.deepcopy(self.headers)
+            headers.update({'referer': referer})
+            url = base_url.format(i)
+            referer = url
+            yield scrapy.FormRequest(url, method='GET', headers=self.headers, callback=self.parse_page)
 
+        for request in self.parse_page(response):
+            yield request
 
-def run(url):
-    global COL
-    COL.ensure_index("unique_id", unique=True)
-    page_count = parse_page_count(url)
-    time.sleep(3)
-    parse_pages(page_count)
+    def parse_page(self, response):
+        regex = '//div[@class="newlist_left_cont"]/ul'
+        for sel in response.xpath(regex):
+            link = sel.xpath(r'li[1]/a/@href').extract_first(default=None)
+            text = sel.xpath(r'li[2]/text()').extract_first(default=None)
+            title = sel.xpath(r'li[1]/a/@title').extract_first(default=None)
+            lst = [link, title, text]
+            if not any(lst):
+                logging.warning(f'{response.url}.{link}: get data failed')
+                continue
+            link = self.base_url + link
+            if self.mongo_col.find_one({'url': link}):
+                logging.warning(f'{link} is download already')
+                continue
+            text = ''.join(text.split())
+            text = re.sub(r'\s|:|：', '', text)
+            promulgator, date = re.findall(r'来源(.*?)发布时间(\d{4}-\d{2}-\d{2})', text)[0]
+            item = GovInfoItem()
+            item['url'] = link
+            item['unique_id'] = link
+            item['title'] = title
+            item['summary'] = ''
+            item['source'] = date.strip('[').strip(']')
+            item['date'] = date
+            item['origin'] = 'cdsjxw'
+            item['type'] = 'web'
+            item['tag'] = '市'
+            item['location'] = '成都市'
+            item['crawled'] = 1
+            yield scrapy.FormRequest(link, method='GET', headers=self.headers,
+                                     meta={'item': item}, callback=self.parse_item)
 
-
-def main():
-    setup_log(logging.INFO, os.path.join(os.path.abspath('.'), '../logs', 'cdsjxw.log'))
-    url = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx.shtml'
-    run(url)
-
-
-if __name__ == '__main__':
-    main()
+    def parse_item(self, response):
+        item = response.meta['item']
+        try:
+            content = response.xpath(r'//div[@id="top"]')[0].xpath('string(.)').extract_first(default='')
+        except Exception as err:
+            try:
+                content = response.xpath(r'//div[@class="main-contshow"]')[0].xpath('string(.)').extract_first(default='')
+            except Exception as err:
+                logging.error(f'{item["url"]}: get content failed')
+                return
+        item['content'] = content
+        yield item

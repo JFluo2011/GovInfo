@@ -16,7 +16,7 @@ class WxgzhTaskSpider(scrapy.Spider):
     name = 'wxgzh_task'
     download_delay = 5
     days = 180
-    task_col = get_col(name)
+    task_col = get_col('wxgzh_task')
     task_col.ensure_index("unique_id", unique=True)
     mongo_col = get_col(MONGODB_COLLECTION)
     mongo_col.ensure_index("unique_id", unique=True)
@@ -45,6 +45,7 @@ class WxgzhTaskSpider(scrapy.Spider):
 
     def start_requests(self):
         url = 'http://weixin.sogou.com/weixin'
+        self.task_col.update({'crawled': {'$ne': 1}}, {'$set': {'crawled': 0}}, multi=True)
         for wx_info in WXINFOS:
             self.days = 180
             self.create_task(wx_info)
@@ -78,7 +79,7 @@ class WxgzhTaskSpider(scrapy.Spider):
             lst = [unique_id, date, source, link]
             if not any(lst):
                 result = -1
-                logging.warning(f'{url}: {params}.{link}: is not publish from {name}')
+                logging.warning(f'{url}: {params}.{link}: get data failed')
                 self.task_col.update({'_id': task['_id']}, {"$set": {'crawled': result}})
                 continue
             if self.mongo_col.find_one({'unique_id': unique_id}):
@@ -90,7 +91,11 @@ class WxgzhTaskSpider(scrapy.Spider):
             item['url'] = link
             item['task_unique_id'] = task['unique_id']
             item['unique_id'] = unique_id
-            item['summary'] = sel.xpath(r'./div/p[@class="txt-info"]')[0].xpath('string(.)').extract_first('')
+            try:
+                item['summary'] = sel.xpath(r'./div/p[@class="txt-info"]')[0].xpath('string(.)').extract_first('')
+            except Exception as err:
+                logging.warning(f'{url}: {params}.{link}: get summary failed')
+                item['summary'] = ''
             item['date'] = time.strftime("%Y-%m-%d", time.localtime(int(date)))
             item['source'] = source
             item['origin'] = origin

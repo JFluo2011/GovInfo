@@ -116,8 +116,9 @@ class RotateProxiesSpiderMiddleware(object):
         pass
 
     def process_exception(self, request, exception, spider):
-        pass
-        # retry again.
+        if 'task' in request.meta.keys():
+            task = request.meta['task']
+            spider.task_col.update({'_id': task['_id']}, {"$set": {'crawled': -1}})
         return
 
 

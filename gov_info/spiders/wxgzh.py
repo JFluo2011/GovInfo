@@ -12,9 +12,10 @@ from gov_info.settings import WXINFOS, MONGODB_COLLECTION
 from gov_info.common.utils import get_col, get_redis_client
 
 
-class WxgzhTaskSpider(scrapy.Spider):
+class WxgzhSpider(scrapy.Spider):
     name = 'wxgzh'
     download_delay = 5
+    task_col = get_col('wxgzh_task')
     mongo_col = get_col(MONGODB_COLLECTION)
     redis_client = get_redis_client()
     headers = {
@@ -40,6 +41,8 @@ class WxgzhTaskSpider(scrapy.Spider):
     }
 
     def start_requests(self):
+        self.mongo_col.update({'$and': [{'type': 'wxgzh'}, {'crawled': {'$ne': 1}}]},
+                              {'$set': {'crawled': 0}}, multi=True)
         while True:
             task = self.mongo_col.find_one_and_update({'crawled': 0}, {'$set': {'crawled': 2}})
             if task is None:
@@ -52,12 +55,19 @@ class WxgzhTaskSpider(scrapy.Spider):
         task = response.meta['task']
         title = response.xpath(r'//*[@id="activity-name"]/text()').extract_first(default=None)
         if title is None:
-            logging.error(f'get title failed')
-            logging.warning(f'{task["url"]}: get title failed')
-            self.mongo_col.update({'_id': task['_id']}, {"$set": {'crawled': -1}})
+            logging.error(f'{task["url"]}: get title failed')
+            self.task_col.update({'unique_id': task['task_unique_id']}, {"$set": {'crawled': -1}})
+            self.mongo_col.find_one_and_delete({'_id': task['_id']})
+            return
         else:
             self.mongo_col.update({'_id': task['_id']}, {"$set": {'crawled': 1}})
-        content = response.xpath(r'//*[@id="js_content"]')[0].xpath('string(.)').extract_first('')
+        try:
+            content = response.xpath(r'//*[@id="js_content"]')[0].xpath('string(.)').extract_first('')
+        except Exception as err:
+            logging.error(f'{task["url"]}: get content failed')
+            self.task_col.update({'unique_id': task['task_unique_id']}, {"$set": {'crawled': -1}})
+            self.mongo_col.find_one_and_delete({'_id': task['_id']})
+            return
         item['title'] = title
         item['unique_id'] = task['unique_id']
         item['content'] = content
