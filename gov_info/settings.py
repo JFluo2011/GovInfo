@@ -112,10 +112,6 @@ WXINFOS = [
                     '&query=%E6%88%90%E9%83%BD%E5%B7%A5%E4%B8%9A%E5%92%8C%E4%BF%A1%E6%81%AF%E5%8C%96'
                     '&tsn=0&ft=&et=&interation=&wxid=oIWsFt_3i5qYBzUSy7UK7vm3EjpA'
                     '&usip=%E6%88%90%E9%83%BD%E5%B7%A5%E4%B8%9A%E5%92%8C%E4%BF%A1%E6%81%AF%E5%8C%96')),
-    WXInfo(name='企邦帮', wx_id='oIWsFt5bBYFhqeLQbPdiR_BYnIo0', origin='qbb_wx',
-           tag='企邦帮', location='企邦帮',
-           referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E4%BC%81%E9%82%A6%E5%B8%AE&tsn=0'
-                    '&ft=&et=&interation=&wxid=oIWsFt5bBYFhqeLQbPdiR_BYnIo0&usip=%E4%BC%81%E9%82%A6%E5%B8%AE'))
 ]
 
 try:

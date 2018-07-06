@@ -59,8 +59,10 @@ class WxgzhTaskPipeline(object):
 class WxgzhPipeline(object):
     def process_item(self, item, spider):
         try:
-            spider.mongo_col.update({'unique_id': item['unique_id']},
-                                    {'$set': {'content': item['content'], 'title': item['title'], 'handled': 0}})
+            spider.mongo_col.update({'unique_id': item['unique_id']}, {
+                '$set': {'content': item['content'], 'title': item['title'],
+                         'summary': item['summary'], 'handled': 0}
+            })
         except Exception as err:
             logging.error(str(err))
             DropItem()

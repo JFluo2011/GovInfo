@@ -4,6 +4,7 @@ import copy
 import logging
 
 import scrapy
+from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
@@ -45,6 +46,7 @@ class CdsjxwSpider(scrapy.Spider):
             raise Exception('get page count failed')
 
         referer = response.url
+        page_count = page_count if int(page_count) < 5 else 5
         base_url = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx_{}.shtml'
         for i in range(2, int(page_count) + 1):
             headers = copy.deepcopy(self.headers)
@@ -89,14 +91,28 @@ class CdsjxwSpider(scrapy.Spider):
                                      meta={'item': item}, callback=self.parse_item)
 
     def parse_item(self, response):
+        selector = etree.HTML(response.body)
         item = response.meta['item']
+        regex = r'//div[@id="top"]'
         try:
-            content = response.xpath(r'//div[@id="top"]')[0].xpath('string(.)').extract_first(default='')
+            content = response.xpath(regex).xpath('string(.)').extract_first(default='')
         except Exception as err:
+            regex = r'//div[@class="main-contshow"]'
             try:
-                content = response.xpath(r'//div[@class="main-contshow"]')[0].xpath('string(.)').extract_first(default='')
+                content = response.xpath(regex).xpath('string(.)').extract_first(default='')
             except Exception as err:
                 logging.error(f'{item["url"]}: get content failed')
                 return
+        if content == '':
+            logging.warning('content is none')
+            return
+        if item['summary'] == '':
+            item['summary'] = content[:100]
+        try:
+            content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
+            item['content'] = content.decode('utf-8')
+        except Exception as err:
+            logging.error(f'{item["url"]}: get content failed')
+            return
         item['content'] = content
         yield item

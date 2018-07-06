@@ -1,4 +1,5 @@
 import pymongo
+from pymongo.errors import PyMongoError
 
 
 class MongodbClient(object):

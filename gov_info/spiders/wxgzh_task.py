@@ -15,7 +15,7 @@ from gov_info.common.utils import get_col, get_redis_client
 class WxgzhTaskSpider(scrapy.Spider):
     name = 'wxgzh_task'
     download_delay = 5
-    days = 180
+    days = 5
     task_col = get_col('wxgzh_task')
     task_col.ensure_index("unique_id", unique=True)
     mongo_col = get_col(MONGODB_COLLECTION)
@@ -47,7 +47,6 @@ class WxgzhTaskSpider(scrapy.Spider):
         url = 'http://weixin.sogou.com/weixin'
         self.task_col.update({'crawled': {'$ne': 1}}, {'$set': {'crawled': 0}}, multi=True)
         for wx_info in WXINFOS:
-            self.days = 180
             self.create_task(wx_info)
         while True:
             task = self.task_col.find_one_and_update({'crawled': 0}, {'$set': {'crawled': 2}})
@@ -117,7 +116,8 @@ class WxgzhTaskSpider(scrapy.Spider):
             'usip': wx_info.name,
         }
         date = datetime.datetime.now()
-        while self.days >= 0:
+        days = self.days
+        while days >= 0:
             t = date.strftime("%Y-%m-%d")
             data = {
                 'url': url,
@@ -131,7 +131,7 @@ class WxgzhTaskSpider(scrapy.Spider):
                 'location': wx_info.location,
             }
             date -= datetime.timedelta(days=1)
-            self.days -= 1
+            days -= 1
             params.update({'ft': t, 'et': t})
             try:
                 self.task_col.insert(data)

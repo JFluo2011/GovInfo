@@ -3,6 +3,7 @@ import re
 import logging
 
 import scrapy
+from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
@@ -45,6 +46,7 @@ class ScstSpider(scrapy.Spider):
         if page_count == b'':
             raise Exception('get page count failed')
 
+        page_count = page_count if int(page_count) < 5 else 5
         if 'tz' in response.url:
             base_url = 'http://www.scst.gov.cn/tz/index_{}.jhtml'
         else:
@@ -96,10 +98,19 @@ class ScstSpider(scrapy.Spider):
             source = '四川省科学技术厅'
         item['source'] = source
         item['date'] = date
+        selector = etree.HTML(response.body)
+        regex = r'//div[@class="newsCon"]'
         try:
-            content = response.xpath(r'//div[@class="newsCon"]')[0].xpath('string(.)').extract_first(default='')
+            content = response.xpath(regex)[0].xpath('string(.)').extract_first(default='')
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
         else:
+            if content == '':
+                logging.warning('content is none')
+                return
+            if item['summary'] == '':
+                item['summary'] = content[:100]
+            content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
+            item['content'] = content.decode('utf-8')
             item['content'] = content
             yield item

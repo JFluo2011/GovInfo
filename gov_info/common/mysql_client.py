@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import pymysql
 import logging
+
+import pymysql
 
 
 class MysqlClient:
@@ -26,7 +27,7 @@ class MysqlClient:
             self.mysql_cur = self.mysql_conn.cursor()
 
         except Exception as err:
-            logging.error('数据库连接失败！')
+            # logging.error('数据库连接失败！')
             raise Exception(err)
 
     def close(self):
@@ -40,6 +41,15 @@ class MysqlClient:
 
         except Exception as err:
             logging.error('存储过程{proc}调用失败, 参数:{args}'.format(proc=proc, args=args))
+            raise Exception(err)
+        finally:
+            self.close()
+
+    def insert_by_sql(self, sql, args):
+        self.connect()
+        try:
+            self.mysql_cur.execute(sql, args)
+        except Exception as err:
             raise Exception(err)
         finally:
             self.close()

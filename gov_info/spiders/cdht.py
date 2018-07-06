@@ -3,6 +3,7 @@ import re
 import logging
 
 import scrapy
+from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
@@ -43,6 +44,7 @@ class CdhtSpider(scrapy.Spider):
             raise Exception('get page count failed')
 
         base_url = 'http://www.cdht.gov.cn/zwgktzgg/index_{}.jhtml'
+        page_count = page_count if int(page_count) < 5 else 5
         for i in range(1, int(page_count) + 1):
             url = base_url.format(i)
             yield scrapy.FormRequest(url, method='GET', headers=self.headers, callback=self.parse_page)
@@ -77,11 +79,23 @@ class CdhtSpider(scrapy.Spider):
                                      meta={'item': item}, callback=self.parse_item)
 
     def parse_item(self, response):
+        selector = etree.HTML(response.body)
         item = response.meta['item']
+        regex = r'//div[@id="d_content"]'
         try:
-            content = response.xpath(r'//div[@id="d_content"]')[0].xpath('string(.)').extract_first(default='')
-            item['content'] = content
+            content = response.xpath(regex).xpath('string(.)').extract_first(default='')
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
         else:
+            if content == '':
+                logging.warning('content is none')
+                return
+            if item['summary'] == '':
+                item['summary'] = content[:100]
+            try:
+                content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
+            except Exception as err:
+                logging.error(f'{item["url"]}: get content failed')
+                return
+            item['content'] = content.decode('utf-8')
             yield item

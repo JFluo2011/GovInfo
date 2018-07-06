@@ -5,6 +5,7 @@ import datetime
 import logging
 
 import scrapy
+from lxml import etree
 from pymongo.errors import DuplicateKeyError
 from gov_info.items import GovInfoItem
 
@@ -53,6 +54,7 @@ class WxgzhSpider(scrapy.Spider):
     def parse(self, response):
         item = GovInfoItem()
         task = response.meta['task']
+        selector = etree.HTML(response.body)
         title = response.xpath(r'//*[@id="activity-name"]/text()').extract_first(default=None)
         if title is None:
             logging.error(f'{task["url"]}: get title failed')
@@ -61,14 +63,27 @@ class WxgzhSpider(scrapy.Spider):
             return
         else:
             self.mongo_col.update({'_id': task['_id']}, {"$set": {'crawled': 1}})
+
+        regex = r'//*[@id="js_content"]'
         try:
-            content = response.xpath(r'//*[@id="js_content"]')[0].xpath('string(.)').extract_first('')
+            content = response.xpath(regex).xpath('string(.)').extract_first('')
         except Exception as err:
             logging.error(f'{task["url"]}: get content failed')
             self.task_col.update({'unique_id': task['task_unique_id']}, {"$set": {'crawled': -1}})
             self.mongo_col.find_one_and_delete({'_id': task['_id']})
             return
+        if content == '':
+            logging.warning('content is none')
+            return
+        try:
+            content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
+        except Exception as err:
+            logging.error(f'{item["url"]}: get content failed')
+            return
+        item['summary'] = task['summary']
+        if item['summary'] == '':
+            item['summary'] = content[:100]
+        item['content'] = content.decode('utf-8')
         item['title'] = title
         item['unique_id'] = task['unique_id']
-        item['content'] = content
         yield item
