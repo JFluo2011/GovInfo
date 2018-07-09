@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import copy
+import time
 import logging
 
 import scrapy
@@ -75,10 +76,13 @@ class CdsjxwSpider(scrapy.Spider):
             text = ''.join(text.split())
             text = re.sub(r'\s|:|：', '', text)
             promulgator, date = re.findall(r'来源(.*?)发布时间(\d{4}-\d{2}-\d{2})', text)[0]
+            if len(date) == 10:
+                now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+                date += ' ' + now.split(' ')[-1]
             item = GovInfoItem()
             item['url'] = link
             item['unique_id'] = link
-            item['title'] = title
+            item['title'] = title.strip()
             item['summary'] = ''
             item['source'] = date.strip('[').strip(']')
             item['date'] = date
@@ -107,12 +111,11 @@ class CdsjxwSpider(scrapy.Spider):
             logging.warning('content is none')
             return
         if item['summary'] == '':
-            item['summary'] = content[:100]
+            item['summary'] = content.strip()[:100]
         try:
             content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
-            item['content'] = content.decode('utf-8')
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
             return
-        item['content'] = content
+        item['content'] = content.decode('utf-8').replace('&#13;', '')
         yield item

@@ -16,6 +16,7 @@ from gov_info.common.utils import get_col, get_redis_client
 class WxgzhSpider(scrapy.Spider):
     name = 'wxgzh'
     download_delay = 5
+    handle_httpstatus_list = [403, 408, 564, 503]
     task_col = get_col('wxgzh_task')
     mongo_col = get_col(MONGODB_COLLECTION)
     redis_client = get_redis_client()
@@ -36,9 +37,11 @@ class WxgzhSpider(scrapy.Spider):
             'gov_info.pipelines.WxgzhPipeline': 100,
         },
         'DOWNLOADER_MIDDLEWARES': {
+            'gov_info.middlewares.RotateUserAgentMiddleware': 400,
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
             'gov_info.middlewares.WxgzhTaskRotateProxiesSpiderMiddleware': 100,
         },
+        'DOWNLOAD_TIMEOUT': 60
     }
 
     def start_requests(self):
@@ -82,8 +85,8 @@ class WxgzhSpider(scrapy.Spider):
             return
         item['summary'] = task['summary']
         if item['summary'] == '':
-            item['summary'] = content[:100]
-        item['content'] = content.decode('utf-8')
-        item['title'] = title
+            item['summary'] = content.strip()[:100]
+        item['content'] = content.decode('utf-8').replace('&#13;', '')
+        item['title'] = title.strip()
         item['unique_id'] = task['unique_id']
         yield item

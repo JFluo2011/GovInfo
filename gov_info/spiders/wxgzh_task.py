@@ -87,6 +87,7 @@ class WxgzhTaskSpider(scrapy.Spider):
             if task['name'] != name:
                 logging.warning(f'{url}: {params}.{link}: is not publish from {task["name"]}')
                 continue
+            link = link.replace('http', 'https')
             item['url'] = link
             item['task_unique_id'] = task['unique_id']
             item['unique_id'] = unique_id
@@ -95,7 +96,7 @@ class WxgzhTaskSpider(scrapy.Spider):
             except Exception as err:
                 logging.warning(f'{url}: {params}.{link}: get summary failed')
                 item['summary'] = ''
-            item['date'] = time.strftime("%Y-%m-%d", time.localtime(int(date)))
+            item['date'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(date)))
             item['source'] = source
             item['origin'] = origin
             item['type'] = 'wxgzh'

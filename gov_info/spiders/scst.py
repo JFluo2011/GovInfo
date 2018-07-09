@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+import time
 import logging
 
 import scrapy
@@ -72,7 +73,7 @@ class ScstSpider(scrapy.Spider):
             item = GovInfoItem()
             item['url'] = link
             item['unique_id'] = link
-            item['title'] = title
+            item['title'] = title.strip()
             item['summary'] = ''
             item['origin'] = 'scst'
             item['type'] = 'web'
@@ -93,6 +94,8 @@ class ScstSpider(scrapy.Spider):
         tmp, source = re.findall(r'发布时间(.*?)来源(.*?)取消', text)[0]
         date = re.findall(r'(\d{4}-\d{2}-\d{2})', tmp)[0]
         time_ = re.findall(r'(\d{2}:\d{2}:\d{2})|$', tmp)[0]
+        if time_ == '':
+            time_ = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
         date += (' ' + time_) if time_ != '' else ''
         if '本站原创' in source:
             source = '四川省科学技术厅'
@@ -109,8 +112,7 @@ class ScstSpider(scrapy.Spider):
                 logging.warning('content is none')
                 return
             if item['summary'] == '':
-                item['summary'] = content[:100]
+                item['summary'] = content.strip()[:100]
             content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
-            item['content'] = content.decode('utf-8')
-            item['content'] = content
+            item['content'] = content.decode('utf-8').replace('&#13;', '')
             yield item

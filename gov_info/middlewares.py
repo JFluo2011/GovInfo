@@ -4,11 +4,15 @@
 #
 # See documentation in:
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
+import re
+import random
 import logging
 
 import scrapy
 from scrapy import signals
 from scrapy.conf import settings
+from scrapy.downloadermiddlewares.useragent import UserAgentMiddleware
+from fake_useragent import UserAgent
 
 from gov_info.common.utils import get_proxy
 
@@ -108,12 +112,36 @@ class GovInfoDownloaderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
+class RotateUserAgentMiddleware(UserAgentMiddleware):
+    ua_obj = UserAgent()
+    regex = re.compile(r"android|iphone|ipad|mobile")
+
+    def __init__(self, user_agent=''):
+        super(RotateUserAgentMiddleware, self).__init__()
+
+    def process_request(self, request, spider):
+        # ua = random.choice(settings['USER_AGENTS'])
+        user_agent = self.ua_obj.random
+        if (not user_agent) or (self.regex.search(user_agent.lower())):
+            user_agent = random.choice(settings['USER_AGENTS'])
+        request.headers.setdefault('User-Agent', user_agent)
+
+
 class RotateProxiesSpiderMiddleware(object):
     def __init__(self, ip=''):
         self.ip = ip
 
     def process_request(self, request, spider):
         pass
+
+    def process_response(self, request, response, spider):
+        # Called with the response returned from the downloader.
+
+        # Must either;
+        # - return a Response object
+        # - return a Request object
+        # - or raise IgnoreRequest
+        return response
 
     def process_exception(self, request, exception, spider):
         if 'task' in request.meta.keys():
@@ -129,3 +157,12 @@ class WxgzhTaskRotateProxiesSpiderMiddleware(RotateProxiesSpiderMiddleware):
     def process_request(self, request, spider):
         proxies = get_proxy(spider.redis_client)
         request.meta["proxy"] = proxies
+
+    def process_response(self, request, response, spider):
+        # Called with the response returned from the downloader.
+
+        # Must either;
+        # - return a Response object
+        # - return a Request object
+        # - or raise IgnoreRequest
+        return response

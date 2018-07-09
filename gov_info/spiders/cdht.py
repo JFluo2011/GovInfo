@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+import time
 import logging
 
 import scrapy
@@ -63,13 +64,16 @@ class CdhtSpider(scrapy.Spider):
             if self.mongo_col.find_one({'url': link}):
                 logging.warning(f'{link} is download already')
                 continue
+            date = date.strip('[').strip(']')
+            if len(date) == 10:
+                now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+                date += ' ' + now.split(' ')[-1]
             item = GovInfoItem()
             item['url'] = link
             item['unique_id'] = link
-            item['title'] = title
             item['summary'] = ''
             item['source'] = source
-            item['date'] = date.strip('[').strip(']')
+            item['date'] = date
             item['origin'] = 'cdht'
             item['type'] = 'web'
             item['tag'] = '区'
@@ -83,19 +87,21 @@ class CdhtSpider(scrapy.Spider):
         item = response.meta['item']
         regex = r'//div[@id="d_content"]'
         try:
+            title = response.xpath(r'//div[@class="page"]/h1/text()').extract_first(default='').strip()
             content = response.xpath(regex).xpath('string(.)').extract_first(default='')
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
         else:
-            if content == '':
-                logging.warning('content is none')
+            if title == '' or content == '':
+                logging.warning('title or content is none')
                 return
             if item['summary'] == '':
-                item['summary'] = content[:100]
+                item['summary'] = content.strip()[:100]
             try:
                 content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
             except Exception as err:
                 logging.error(f'{item["url"]}: get content failed')
                 return
-            item['content'] = content.decode('utf-8')
+            item['content'] = content.decode('utf-8').replace('&#13;', '')
+            item['title'] = title
             yield item

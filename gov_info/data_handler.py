@@ -30,13 +30,15 @@ class DataHandler:
                 continue
             status = self.handle_to_mysql(task)
             self.update_handle_task(task, status)
+            logging.info(f'news {task["url"]} had handled')
             time.sleep(1)
 
     def get_handle_task(self, retry=5):
         task = None
         while retry > 0:
             try:
-                task = self.mongo_col.find_one_and_update({'handled': 0}, {'$set': {'handled': 2}})
+                task = self.mongo_col.find_one_and_update(
+                    {'$and': [{'crawled': 1}, {'handled': 0}]}, {'$set': {'handled': 2}})
             except PyMongoError as err:
                 logging.error(f'{str(err)}, {retry} times to retry')
                 retry -= 1
@@ -64,10 +66,8 @@ class DataHandler:
 
     def handle_to_mysql(self, task, retry=5):
         status = 0
-        # sql = f"insert into {MYSQL_TABLE}(summary, title, content, source) values(%s,%s,%s,%s);"
-        sql = f"insert into {MYSQL_TABLE}(summary, title, content, source, create_time) values(%s,%s,%s,%s,%s);"
+        sql = f"""insert into {MYSQL_TABLE}(summary, title, content, source, create_time) values (%s,%s,%s,%s,%s);"""
         date = task['date']
-        # args = [task['summary'], task['title'], task['content'], task['source']]
         args = [task['summary'], task['title'], task['content'], task['source'], date]
         while retry > 0:
             try:
