@@ -29,8 +29,8 @@ class GovInfoPipeline(object):
             spider.mongo_col.insert(data)
         except Exception as err:
             logging.error(str(err))
+        finally:
             DropItem()
-        return item
 
 
 class WxgzhTaskPipeline(object):
@@ -52,8 +52,8 @@ class WxgzhTaskPipeline(object):
             spider.mongo_col.insert(data)
         except Exception as err:
             logging.error(str(err))
+        finally:
             DropItem()
-        return item
 
 
 class WxgzhPipeline(object):
@@ -65,5 +65,5 @@ class WxgzhPipeline(object):
             })
         except Exception as err:
             logging.error(str(err))
+        finally:
             DropItem()
-        return item
