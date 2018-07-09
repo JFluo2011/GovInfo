@@ -17,7 +17,13 @@ Video
 logs
 images
 *-bak
+env
 
+# supervisor
+*.pid
+*.sock
+supervisord.conf.d
+supervisord.conf
 
 # pycharm:
 .idea

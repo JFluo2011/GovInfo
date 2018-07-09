@@ -8,8 +8,8 @@ import redis
 import requests
 
 from gov_info.common.mongodb_client import MongodbClient
-from gov_info.common.local_config import MONGODB_DB, MONGODB_PORT, MONGODB_SERVER
-from gov_info.common.local_config import REDIS_DB, REDIS_PORT, REDIS_SERVER
+from gov_info.common.config import MONGODB_DB, MONGODB_PORT, MONGODB_SERVER
+from gov_info.common.config import REDIS_DB, REDIS_PORT, REDIS_SERVER
 
 
 FORMAT = '%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s'

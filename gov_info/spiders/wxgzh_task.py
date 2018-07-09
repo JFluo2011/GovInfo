@@ -3,6 +3,8 @@ import re
 import time
 import datetime
 import logging
+import copy
+import json
 
 import scrapy
 from pymongo.errors import DuplicateKeyError
@@ -20,7 +22,8 @@ class WxgzhTaskSpider(scrapy.Spider):
     task_col.ensure_index("unique_id", unique=True)
     mongo_col = get_col(MONGODB_COLLECTION)
     mongo_col.ensure_index("unique_id", unique=True)
-    redis_client = get_redis_client()
+    redis_con = get_redis_client()
+    redis_key = 'wxgzh'
     headers = {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate',
@@ -68,6 +71,7 @@ class WxgzhTaskSpider(scrapy.Spider):
             logging.error(f'{url}: {params} page too more')
         self.task_col.update({'_id': task['_id']}, {"$set": {'crawled': result}})
 
+        redis_values = []
         for sel in response.xpath(r'//li[contains(@id, "sogou_vr_")]'):
             item = GovInfoItem()
             unique_id = sel.xpath(r'./@d').extract_first(default=None)
@@ -103,7 +107,9 @@ class WxgzhTaskSpider(scrapy.Spider):
             item['crawled'] = 0
             item['tag'] = task['tag']
             item['location'] = task['location']
-            yield item
+            redis_values.append(json.dumps({'item': dict(item)}))
+        if redis_values:
+            self.redis_con.sadd("{}".format(self.redis_key), *redis_values)
 
     def create_task(self, wx_info):
         url = 'http://weixin.sogou.com/weixin'

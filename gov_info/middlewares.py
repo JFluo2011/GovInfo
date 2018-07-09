@@ -5,14 +5,17 @@
 # See documentation in:
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 import re
+import json
 import random
 import logging
+import urllib
 
 import scrapy
 from scrapy import signals
 from scrapy.conf import settings
 from scrapy.downloadermiddlewares.useragent import UserAgentMiddleware
 from fake_useragent import UserAgent
+from gov_info.items import GovInfoItem
 
 from gov_info.common.utils import get_proxy
 
@@ -155,8 +158,30 @@ class WxgzhTaskRotateProxiesSpiderMiddleware(RotateProxiesSpiderMiddleware):
         super(WxgzhTaskRotateProxiesSpiderMiddleware, self).__init__(ip)
 
     def process_request(self, request, spider):
-        proxies = get_proxy(spider.redis_client)
+        proxies = get_proxy(spider.redis_con)
         request.meta["proxy"] = proxies
+
+    def process_response(self, request, response, spider):
+        # Called with the response returned from the downloader.
+
+        # Must either;
+        # - return a Response object
+        # - return a Request object
+        # - or raise IgnoreRequest
+        return response
+
+
+class WxgzhSpiderMiddleware(RotateProxiesSpiderMiddleware):
+    def __init__(self, ip=''):
+        super(WxgzhSpiderMiddleware, self).__init__(ip)
+
+    def process_request(self, request, spider):
+        if 'unique_id' in request.url:
+            json_data = json.loads(urllib.parse.unquote(request.url))
+            return scrapy.FormRequest(json_data['item']['url'], method='GET', meta={'json_data': json_data})
+        else:
+            proxies = get_proxy(spider.redis_con)
+            request.meta["proxy"] = proxies
 
     def process_response(self, request, response, spider):
         # Called with the response returned from the downloader.

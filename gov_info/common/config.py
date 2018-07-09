@@ -12,7 +12,7 @@ MYSQL_PASSWORD = ''
 
 REDIS_SERVER = 'localhost'
 REDIS_PORT = 6379
-REDIS_DB = 0
+REDIS_DB = 15
 
 
 try:
