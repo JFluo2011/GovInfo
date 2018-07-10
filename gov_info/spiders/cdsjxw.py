@@ -31,10 +31,11 @@ class CdsjxwSpider(scrapy.Spider):
     }
 
     custom_settings = {
+        'COOKIES_ENABLED': True,
+        'LOG_FILE': f'logs/{name}.log',
         'ITEM_PIPELINES': {
             'gov_info.pipelines.GovInfoPipeline': 100,
         },
-        'COOKIES_ENABLED': True
     }
 
     def start_requests(self):

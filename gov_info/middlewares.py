@@ -20,6 +20,84 @@ from gov_info.items import GovInfoItem
 from gov_info.common.utils import get_proxy
 
 
+class RotateUserAgentMiddleware(UserAgentMiddleware):
+    ua_obj = UserAgent()
+    regex = re.compile(r"android|iphone|ipad|mobile")
+
+    def __init__(self, user_agent=''):
+        super(RotateUserAgentMiddleware, self).__init__()
+
+    def process_request(self, request, spider):
+        # ua = random.choice(settings['USER_AGENTS'])
+        user_agent = self.ua_obj.random
+        if (not user_agent) or (self.regex.search(user_agent.lower())):
+            user_agent = random.choice(settings['USER_AGENTS'])
+        request.headers.setdefault('User-Agent', user_agent)
+
+
+class RotateProxiesSpiderMiddleware(object):
+    def __init__(self, ip=''):
+        self.ip = ip
+
+    def process_request(self, request, spider):
+        pass
+
+    def process_response(self, request, response, spider):
+        # Called with the response returned from the downloader.
+
+        # Must either;
+        # - return a Response object
+        # - return a Request object
+        # - or raise IgnoreRequest
+        return response
+
+    def process_exception(self, request, exception, spider):
+        if 'task' in request.meta.keys():
+            task = request.meta['task']
+            spider.task_col.update({'_id': task['_id']}, {"$set": {'crawled': -1}})
+        return
+
+
+class WxgzhTaskRotateProxiesSpiderMiddleware(RotateProxiesSpiderMiddleware):
+    def __init__(self, ip=''):
+        super(WxgzhTaskRotateProxiesSpiderMiddleware, self).__init__(ip)
+
+    def process_request(self, request, spider):
+        proxies = get_proxy(spider.redis_con)
+        request.meta["proxy"] = proxies
+
+    def process_response(self, request, response, spider):
+        # Called with the response returned from the downloader.
+
+        # Must either;
+        # - return a Response object
+        # - return a Request object
+        # - or raise IgnoreRequest
+        return response
+
+
+class WxgzhSpiderMiddleware(RotateProxiesSpiderMiddleware):
+    def __init__(self, ip=''):
+        super(WxgzhSpiderMiddleware, self).__init__(ip)
+
+    def process_request(self, request, spider):
+        if 'unique_id' in request.url:
+            json_data = json.loads(urllib.parse.unquote(request.url))
+            return scrapy.FormRequest(json_data['item']['url'], method='GET', meta={'json_data': json_data})
+        else:
+            proxies = get_proxy(spider.redis_con)
+            request.meta["proxy"] = proxies
+
+    def process_response(self, request, response, spider):
+        # Called with the response returned from the downloader.
+
+        # Must either;
+        # - return a Response object
+        # - return a Request object
+        # - or raise IgnoreRequest
+        return response
+
+
 class GovInfoSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the spider middleware does not modify the
@@ -113,81 +191,3 @@ class GovInfoDownloaderMiddleware(object):
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
-
-
-class RotateUserAgentMiddleware(UserAgentMiddleware):
-    ua_obj = UserAgent()
-    regex = re.compile(r"android|iphone|ipad|mobile")
-
-    def __init__(self, user_agent=''):
-        super(RotateUserAgentMiddleware, self).__init__()
-
-    def process_request(self, request, spider):
-        # ua = random.choice(settings['USER_AGENTS'])
-        user_agent = self.ua_obj.random
-        if (not user_agent) or (self.regex.search(user_agent.lower())):
-            user_agent = random.choice(settings['USER_AGENTS'])
-        request.headers.setdefault('User-Agent', user_agent)
-
-
-class RotateProxiesSpiderMiddleware(object):
-    def __init__(self, ip=''):
-        self.ip = ip
-
-    def process_request(self, request, spider):
-        pass
-
-    def process_response(self, request, response, spider):
-        # Called with the response returned from the downloader.
-
-        # Must either;
-        # - return a Response object
-        # - return a Request object
-        # - or raise IgnoreRequest
-        return response
-
-    def process_exception(self, request, exception, spider):
-        if 'task' in request.meta.keys():
-            task = request.meta['task']
-            spider.task_col.update({'_id': task['_id']}, {"$set": {'crawled': -1}})
-        return
-
-
-class WxgzhTaskRotateProxiesSpiderMiddleware(RotateProxiesSpiderMiddleware):
-    def __init__(self, ip=''):
-        super(WxgzhTaskRotateProxiesSpiderMiddleware, self).__init__(ip)
-
-    def process_request(self, request, spider):
-        proxies = get_proxy(spider.redis_con)
-        request.meta["proxy"] = proxies
-
-    def process_response(self, request, response, spider):
-        # Called with the response returned from the downloader.
-
-        # Must either;
-        # - return a Response object
-        # - return a Request object
-        # - or raise IgnoreRequest
-        return response
-
-
-class WxgzhSpiderMiddleware(RotateProxiesSpiderMiddleware):
-    def __init__(self, ip=''):
-        super(WxgzhSpiderMiddleware, self).__init__(ip)
-
-    def process_request(self, request, spider):
-        if 'unique_id' in request.url:
-            json_data = json.loads(urllib.parse.unquote(request.url))
-            return scrapy.FormRequest(json_data['item']['url'], method='GET', meta={'json_data': json_data})
-        else:
-            proxies = get_proxy(spider.redis_con)
-            request.meta["proxy"] = proxies
-
-    def process_response(self, request, response, spider):
-        # Called with the response returned from the downloader.
-
-        # Must either;
-        # - return a Response object
-        # - return a Request object
-        # - or raise IgnoreRequest
-        return response

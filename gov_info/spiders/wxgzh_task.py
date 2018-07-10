@@ -37,6 +37,7 @@ class WxgzhTaskSpider(scrapy.Spider):
     }
 
     custom_settings = {
+        'LOG_FILE': f'logs/{name}.log',
         'ITEM_PIPELINES': {
             'gov_info.pipelines.WxgzhTaskPipeline': 100,
         },

@@ -43,6 +43,7 @@ class CdhtSpider(scrapy.Spider):
     }
 
     custom_settings = {
+        'LOG_FILE': f'logs/{name}.log',
         'ITEM_PIPELINES': {
             'gov_info.pipelines.GovInfoPipeline': 100,
         },

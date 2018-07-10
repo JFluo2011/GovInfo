@@ -36,16 +36,17 @@ class WxgzhSpider(RedisSpider):
     }
 
     custom_settings = {
+        'DOWNLOAD_TIMEOUT': 60,
+        'LOG_FILE': f'logs/{name}.log',
         'ITEM_PIPELINES': {
             'gov_info.pipelines.GovInfoPipeline': 100,
-            'scrapy_redis.pipelines.RedisPipeline': 200,
+            # 'scrapy_redis.pipelines.RedisPipeline': 200,
         },
         'DOWNLOADER_MIDDLEWARES': {
             'gov_info.middlewares.RotateUserAgentMiddleware': 400,
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
             'gov_info.middlewares.WxgzhSpiderMiddleware': 100,
         },
-        'DOWNLOAD_TIMEOUT': 60
     }
 
     # def start_requests(self):

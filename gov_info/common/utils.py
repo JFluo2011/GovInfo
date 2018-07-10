@@ -9,7 +9,7 @@ import requests
 
 from gov_info.common.mongodb_client import MongodbClient
 from gov_info.common.config import MONGODB_DB, MONGODB_PORT, MONGODB_SERVER
-from gov_info.common.config import REDIS_DB, REDIS_PORT, REDIS_SERVER
+from gov_info.common.config import USER_REDIS
 
 
 FORMAT = '%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s'
@@ -69,11 +69,11 @@ def get_proxy(redis_client):
         proxy = random.choice(redis_client.keys('http://*'))
     except:
         return None
-    return proxy
+    return proxy.decode('utf-8')
 
 
 def get_redis_client():
-    return redis.Redis(host=REDIS_SERVER, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+    return redis.StrictRedis(**USER_REDIS)
 
 
 def get_html(url, method='GET', params=None, data=None, headers=None, byte_=False):

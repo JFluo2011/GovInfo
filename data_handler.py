@@ -29,7 +29,7 @@ class DataHandler:
             task = self.get_handle_task()
             if task is None:
                 logging.info('no more task to handle')
-                time.sleep(5)
+                time.sleep(60)
                 continue
             status = self.handle_to_mysql(task)
             self.update_handle_task(task, status)
@@ -89,7 +89,7 @@ class DataHandler:
 
 
 def main():
-    setup_log(logging.INFO, os.path.join(os.path.abspath('.'), 'logs', 'uploader.log'))
+    setup_log(logging.INFO, os.path.join(os.path.abspath('.'), 'logs', 'data_handler.log'))
     data_handler = DataHandler()
     data_handler.handle()
 

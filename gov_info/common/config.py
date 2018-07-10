@@ -12,9 +12,21 @@ MYSQL_TABLE = ''
 MYSQL_USER = ''
 MYSQL_PASSWORD = ''
 
-REDIS_SERVER = 'localhost'
+REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
-REDIS_DB = 15
+
+REDIS_PARAMS = {
+    # 'password': '',
+    'db': 15,
+}
+
+USER_REDIS = {
+    'host': REDIS_HOST,
+    'port': REDIS_PORT,
+    'db': REDIS_PARAMS['db'],
+    # 'password': REDIS_PARAMS['password'],
+    'socket_timeout': 3
+}
 
 
 try:
