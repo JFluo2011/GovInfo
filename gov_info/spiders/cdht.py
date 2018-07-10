@@ -74,7 +74,7 @@ class CdhtSpider(scrapy.Spider):
             item['summary'] = ''
             item['source'] = source
             item['date'] = date
-            item['origin'] = 'cdht'
+            item['origin'] = self.name
             item['type'] = 'web'
             item['tag'] = '区'
             item['location'] = '成都市高新区'

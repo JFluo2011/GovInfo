@@ -18,13 +18,11 @@ logs
 images
 *-bak
 env
+main
 
 # supervisor
 *.pid
 *.sock
-supervisord.conf.d
-supervisord.conf
-
 
 # pycharm:
 .idea

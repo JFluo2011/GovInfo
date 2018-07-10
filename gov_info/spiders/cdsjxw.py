@@ -86,7 +86,7 @@ class CdsjxwSpider(scrapy.Spider):
             item['summary'] = ''
             item['source'] = date.strip('[').strip(']')
             item['date'] = date
-            item['origin'] = 'cdsjxw'
+            item['origin'] = self.name
             item['type'] = 'web'
             item['tag'] = '市'
             item['location'] = '成都市'

@@ -75,7 +75,7 @@ class ScstSpider(scrapy.Spider):
             item['unique_id'] = link
             item['title'] = title.strip()
             item['summary'] = ''
-            item['origin'] = 'scst'
+            item['origin'] = self.name
             item['type'] = 'web'
             item['tag'] = '省'
             item['location'] = '四川省科学技术厅'

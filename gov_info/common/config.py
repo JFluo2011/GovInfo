@@ -1,3 +1,5 @@
+import platform
+
 MONGODB_SERVER = 'localhost'
 MONGODB_PORT = 27017
 MONGODB_DB = 'Test'
@@ -16,6 +18,7 @@ REDIS_DB = 15
 
 
 try:
-    from gov_info.common.local_config import *
+    if platform.system().lower() == 'linux':
+        from gov_info.common.local_config import *
 except:
     pass
