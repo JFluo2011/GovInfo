@@ -139,7 +139,7 @@ USER_AGENTS = [
 
 
 WXINFOS = [
-    WXInfo(name='成都高新', wx_id='oIWsFtzdz_uTS1UC9PKpVWMvDyS4', origin='cdht_wx', tag='区', location='成都市高新区',
+    WXInfo(name='成都高新', wx_id='oIWsFtzdz_uTS1UC9PKpVWMvDyS4', origin='cdht_wx', tag='区', location='高新区',
            referer=('http://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0'
                     '&tsn=0&ft=&et=&interation=&wxid=oIWsFtzdz_uTS1UC9PKpVWMvDyS4'
                     '&usip=%E6%88%90%E9%83%BD%E9%AB%98%E6%96%B0')),

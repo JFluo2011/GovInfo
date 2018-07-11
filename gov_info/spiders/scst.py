@@ -78,8 +78,7 @@ class ScstSpider(scrapy.Spider):
             item['summary'] = ''
             item['origin'] = self.name
             item['type'] = 'web'
-            item['tag'] = '省'
-            item['location'] = '四川省科学技术厅'
+            item['location'] = '四川省'
             item['crawled'] = 1
             yield scrapy.FormRequest(link, method='GET', headers=self.headers,
                                      meta={'item': item}, callback=self.parse_item)

@@ -2,8 +2,8 @@ from scrapy.cmdline import execute
 
 spiders = [
     # 'scrapy crawl cdhrsip',
-    # 'scrapy crawl wxgzh_task',
-    'scrapy crawl wxgzh',
+    'scrapy crawl wxgzh_task',
+    # 'scrapy crawl wxgzh',
 ]
 
 

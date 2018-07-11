@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import time
 import logging
 
 import pymysql
@@ -45,14 +46,28 @@ class MysqlClient:
         finally:
             self.close()
 
-    def insert_by_sql(self, sql, args):
-        self.connect()
-        try:
-            self.mysql_cur.execute(sql, args)
-        except Exception as err:
-            raise Exception(err)
-        finally:
-            self.close()
+    def execute_by_sql(self, sql, args='', operate='select', retry=5):
+        status, result, error = 0, None, None
+        while retry > 0:
+            self.connect()
+            try:
+                if args == '':
+                    self.mysql_cur.execute(sql)
+                else:
+                    self.mysql_cur.execute(sql, args)
+            except Exception as err:
+                retry -= 1
+                error = err
+            else:
+                status = 1
+                if operate.lower() == 'select':
+                    result = self.mysql_cur.fetchall()
+                break
+            finally:
+                self.close()
+            time.sleep(1)
+
+        return status, result, error
 
     def select(self, proc, args=''):
         self.connect()
@@ -78,6 +93,19 @@ class MysqlClient:
             raise Exception(err)
         finally:
             self.close()
+
+    def transaction(self, lst):
+        self.connect()
+        try:
+            for sql, args in lst:
+                self.mysql_cur.execute(sql, args)
+            self.mysql_cur.close()
+            self.mysql_conn.commit()
+        except Exception as err:
+            self.mysql_conn.rollback()
+            raise Exception(err)
+        finally:
+            self.mysql_conn.close()
 
 
 def main():

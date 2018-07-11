@@ -8,7 +8,9 @@ MONGODB_COLLECTION = 'test'
 MYSQL_SERVER = 'localhost'
 MYSQL_PORT = 3306
 MYSQL_DB = ''
-MYSQL_TABLE = ''
+MYSQL_TABLE_NEWS = ''
+MYSQL_TABLE_NEWS_TAG = ''
+MYSQL_TABLE_TAG = ''
 MYSQL_USER = ''
 MYSQL_PASSWORD = ''
 
@@ -30,7 +32,7 @@ USER_REDIS = {
 
 
 try:
-    if platform.system().lower() == 'linux':
-        from gov_info.common.local_config import *
+    # if platform.system().lower() == 'linux':
+    from gov_info.common.local_config import *
 except:
     pass

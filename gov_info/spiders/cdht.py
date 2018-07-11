@@ -77,8 +77,7 @@ class CdhtSpider(scrapy.Spider):
             item['date'] = date
             item['origin'] = self.name
             item['type'] = 'web'
-            item['tag'] = '区'
-            item['location'] = '成都市高新区'
+            item['location'] = '高新区'
             item['crawled'] = 1
             yield scrapy.FormRequest(link, method='GET', headers=self.headers,
                                      meta={'item': item}, callback=self.parse_item)

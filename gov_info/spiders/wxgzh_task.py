@@ -135,7 +135,6 @@ class WxgzhTaskSpider(scrapy.Spider):
                 'params': params,
                 'referer': wx_info.referer,
                 'crawled': 0,
-                'tag': wx_info.tag,
                 'location': wx_info.location,
             }
             date -= datetime.timedelta(days=1)

@@ -85,11 +85,10 @@ class CdsjxwSpider(scrapy.Spider):
             item['unique_id'] = link
             item['title'] = title.strip()
             item['summary'] = ''
-            item['source'] = date.strip('[').strip(']')
+            item['source'] = promulgator
             item['date'] = date
             item['origin'] = self.name
             item['type'] = 'web'
-            item['tag'] = '市'
             item['location'] = '成都市'
             item['crawled'] = 1
             yield scrapy.FormRequest(link, method='GET', headers=self.headers,
