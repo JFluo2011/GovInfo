@@ -32,7 +32,7 @@ USER_REDIS = {
 
 
 try:
-    # if platform.system().lower() == 'linux':
-    from gov_info.common.local_config import *
+    if platform.system().lower() == 'linux':
+        from gov_info.common.local_config import *
 except:
     pass

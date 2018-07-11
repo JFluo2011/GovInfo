@@ -59,10 +59,10 @@ class CdhtSpider(scrapy.Spider):
             source = sel.xpath(r'td[2]/text()').extract_first(default=None)
             date = sel.xpath(r'td[3]/span/text()').extract_first(default=None)
             lst = [link, title, source, date]
-            if not any(lst):
-                logging.warning(f'{response.url}.{link}: get data failed')
+            if not all(lst):
+                logging.warning(f'{response.url}: get data failed')
                 continue
-            if self.mongo_col.find_one({'url': link}):
+            if self.mongo_col.find_one({'unique_id': link}):
                 logging.warning(f'{link} is download already')
                 continue
             date = date.strip('[').strip(']')

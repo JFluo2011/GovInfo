@@ -21,7 +21,6 @@ class GovInfoItem(scrapy.Item):
     type = scrapy.Field()
     content = scrapy.Field()
     title = scrapy.Field()
-    tag = scrapy.Field()
     location = scrapy.Field()
     crawled = scrapy.Field()
     result = scrapy.Field()

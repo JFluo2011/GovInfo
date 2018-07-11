@@ -81,7 +81,7 @@ class WxgzhTaskSpider(scrapy.Spider):
             link = sel.xpath(r'div/h3/a/@href').extract_first(default=None)
             name = sel.xpath(r'div/div/a/text()').extract_first(default=None)
             lst = [unique_id, date, source, link]
-            if not any(lst):
+            if not all(lst):
                 result = -1
                 logging.warning(f'{url}: {params}.{link}: get data failed')
                 self.task_col.update({'_id': task['_id']}, {"$set": {'crawled': result}})

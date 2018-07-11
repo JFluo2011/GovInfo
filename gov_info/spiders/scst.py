@@ -64,7 +64,7 @@ class ScstSpider(scrapy.Spider):
             link = sel.xpath(r'a/@href').extract_first(default=None)
             title = sel.xpath(r'a/@title').extract_first(default=None)
             lst = [link, title]
-            if not any(lst):
+            if not all(lst):
                 logging.warning(f'{response.url}.{link}: get data failed')
                 continue
             link = base_url + link

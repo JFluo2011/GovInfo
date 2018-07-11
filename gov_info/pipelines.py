@@ -18,7 +18,6 @@ class GovInfoPipeline(object):
             'source': item['source'],
             'origin': item['origin'],
             'type': item['type'],
-            'tag': item['tag'],
             'location': item['location'],
             'title': item['title'],
             'content': item['content'],
@@ -44,7 +43,6 @@ class WxgzhTaskPipeline(object):
             'source': item['source'],
             'origin': item['origin'],
             'type': item['type'],
-            'tag': item['tag'],
             'location': item['location'],
             'crawled': item['crawled'],
         }

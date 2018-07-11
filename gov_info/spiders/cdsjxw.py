@@ -67,7 +67,7 @@ class CdsjxwSpider(scrapy.Spider):
             text = sel.xpath(r'li[2]/text()').extract_first(default=None)
             title = sel.xpath(r'li[1]/a/@title').extract_first(default=None)
             lst = [link, title, text]
-            if not any(lst):
+            if not all(lst):
                 logging.warning(f'{response.url}.{link}: get data failed')
                 continue
             link = self.base_url + link

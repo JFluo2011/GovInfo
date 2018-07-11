@@ -14,7 +14,7 @@ from gov_info.settings import MONGODB_COLLECTION
 from gov_info.common.utils import get_col
 
 
-class CdhtSpider(scrapy.Spider):
+class CdhrsipSpider(scrapy.Spider):
     name = 'cdhrsip'
     download_delay = 5
     max_page = 5
@@ -55,12 +55,12 @@ class CdhtSpider(scrapy.Spider):
                 yield request
 
     def parse(self, response):
-        url = 'http://www.cdhrsip.com/article/newsInfo?id={}'
+        base_url = 'http://www.cdhrsip.com/article/newsInfo?id={}'
         json_data = json.loads(response.body)
         records = json_data['records']
         for record in records:
             unique_id = record['id']
-            url = url.format(record['id'])
+            url = base_url.format(record['id'])
             if self.mongo_col.find_one({'unique_id': unique_id}):
                 logging.warning(f'{url} is download already')
                 continue
