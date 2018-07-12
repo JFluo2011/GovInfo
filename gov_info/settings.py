@@ -103,17 +103,10 @@ LOG_STDOUT = False
 LOG_SHORT_NAMES = False
 
 # redis
-# Enables scheduling storing requests queue in redis.
-SCHEDULER = "scrapy_redis.scheduler.Scheduler"
-
-# Ensure all spiders share same duplicates filter through redis.
-# DUPEFILTER_CLASS = "scrapy_redis.dupefilter.RFPDupeFilter"
-DUPEFILTER_CLASS = "gov_info.common.utils.MyRFPDupeFilter"
-# Don't cleanup redis queues, allows to pause/resume crawls.
-SCHEDULER_PERSIST = True
-# Configure item pipelines
-# See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
-REDIS_START_URLS_AS_SET = True
+# SCHEDULER = "scrapy_redis.scheduler.Scheduler"
+# DUPEFILTER_CLASS = "gov_info.common.utils.MyRFPDupeFilter"
+# SCHEDULER_PERSIST = True
+# REDIS_START_URLS_AS_SET = True
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1"
@@ -155,3 +148,4 @@ try:
     from gov_info.common.config import *
 except Exception as err:
     raise err
+

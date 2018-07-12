@@ -14,7 +14,7 @@ from gov_info.common.utils import get_col
 class ScstSpider(scrapy.Spider):
     name = 'scst'
     download_delay = 5
-    # mongo_col = get_col('scst')
+    max_page = 5
     mongo_col = get_col(MONGODB_COLLECTION)
     mongo_col.ensure_index("unique_id", unique=True)
     start_urls = [
@@ -48,7 +48,7 @@ class ScstSpider(scrapy.Spider):
         if page_count == b'':
             raise Exception('get page count failed')
 
-        page_count = page_count if int(page_count) < 5 else 5
+        page_count = min(int(page_count), self.max_page)
         if 'tz' in response.url:
             base_url = 'http://www.scst.gov.cn/tz/index_{}.jhtml'
         else:
@@ -61,8 +61,8 @@ class ScstSpider(scrapy.Spider):
         base_url = 'http://www.scst.gov.cn'
         regex = r'//div[contains(@class, "news_right")]//h2'
         for sel in response.xpath(regex):
-            link = sel.xpath(r'a/@href').extract_first(default=None)
-            title = sel.xpath(r'a/@title').extract_first(default=None)
+            link = sel.xpath(r'a/@href').extract_first(default='').strip()
+            title = sel.xpath(r'a/@title').extract_first(default='').strip()
             lst = [link, title]
             if not all(lst):
                 logging.warning(f'{response.url}.{link}: get data failed')
@@ -104,7 +104,7 @@ class ScstSpider(scrapy.Spider):
         selector = etree.HTML(response.body)
         regex = r'//div[@class="newsCon"]'
         try:
-            content = response.xpath(regex)[0].xpath('string(.)').extract_first(default='')
+            content = response.xpath(regex)[0].xpath('string(.)').extract_first(default='').strip()
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
         else:
@@ -112,7 +112,7 @@ class ScstSpider(scrapy.Spider):
                 logging.warning('content is none')
                 return
             if item['summary'] == '':
-                item['summary'] = content.strip()[:100]
+                item['summary'] = content[:100]
             content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
             item['content'] = content.decode('utf-8').replace('&#13;', '')
             yield item

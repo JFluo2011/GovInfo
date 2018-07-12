@@ -29,7 +29,7 @@ class DataHandler:
         while True:
             task = self.get_handle_task()
             if task is None:
-                logging.info('no more task to handle')
+                # logging.info('no more task to handle')
                 self.mongo_col.update({'$and': [{'crawled': 1}, {'handled': {'$ne': 1}}]},
                                       {'$set': {'handled': 0}}, multi=True)
                 time.sleep(60)

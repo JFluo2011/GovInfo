@@ -58,7 +58,7 @@ class WxgzhPipeline(object):
     def process_item(self, item, spider):
         try:
             spider.mongo_col.update({'unique_id': item['unique_id']}, {
-                '$set': {'content': item['content'], 'title': item['title'],
+                '$set': {'content': item['content'], 'title': item['title'], 'crawled': item['crawled'],
                          'summary': item['summary'], 'handled': 0}
             })
         except Exception as err:

@@ -13,6 +13,7 @@ class Command(ScrapyCommand):
 
     def run(self, args, opts):
         spider_list = self.crawler_process.spiders.list()
+        print(spider_list)
         for name in spider_list:
             if name == 'wxgzh':
                 continue

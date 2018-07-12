@@ -67,7 +67,7 @@ class CdmbcSpider(scrapy.Spider):
             'X-Requested-With': 'XMLHttpRequest',
             'Host': 'swgl.cdmbc.gov.cn'
         })
-        page_count = int(page_count) if int(page_count) < 5 else 5
+        page_count = min(int(page_count), self.max_page)
         url = 'http://swgl.cdmbc.gov.cn/egrantweb/notice/noticeList?flag=grid&noticeType=3'
         for page in range(1, page_count+1):
             form_data.update({'page': str(page)})
@@ -110,14 +110,14 @@ class CdmbcSpider(scrapy.Spider):
         regex = r'//div[@id="detail"]'
         try:
             title = response.xpath(r'//div[@class="detailBox"]/h2/text()').extract_first(default='').strip()
-            content = response.xpath(regex).xpath('string(.)').extract_first(default='')
+            content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
         else:
             if (title == '') or (content == ''):
                 logging.warning('title or content is none')
                 return
-            item['summary'] = content.strip()[:100]
+            item['summary'] = content[:100]
             try:
                 content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
             except Exception as err:

@@ -45,6 +45,11 @@ class WxgzhTaskSpider(scrapy.Spider):
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
             'gov_info.middlewares.WxgzhTaskRotateProxiesSpiderMiddleware': 100,
         },
+        # # redis
+        # 'SCHEDULER': "scrapy_redis.scheduler.Scheduler",
+        # 'DUPEFILTER_CLASS': "gov_info.common.utils.MyRFPDupeFilter",
+        # 'SCHEDULER_PERSIST': True,
+        # 'REDIS_START_URLS_AS_SET': True
     }
 
     def start_requests(self):
@@ -75,11 +80,11 @@ class WxgzhTaskSpider(scrapy.Spider):
         redis_values = []
         for sel in response.xpath(r'//li[contains(@id, "sogou_vr_")]'):
             item = GovInfoItem()
-            unique_id = sel.xpath(r'./@d').extract_first(default=None)
-            date = sel.xpath(r'div/div/@t').extract_first(default=None)
-            source = sel.xpath(r'div/div/a/text()').extract_first(default=None)
-            link = sel.xpath(r'div/h3/a/@href').extract_first(default=None)
-            name = sel.xpath(r'div/div/a/text()').extract_first(default=None)
+            unique_id = sel.xpath(r'./@d').extract_first(default='').strip()
+            date = sel.xpath(r'div/div/@t').extract_first(default='').strip()
+            source = sel.xpath(r'div/div/a/text()').extract_first(default='').strip()
+            link = sel.xpath(r'div/h3/a/@href').extract_first(default='').strip()
+            name = sel.xpath(r'div/div/a/text()').extract_first(default='').strip()
             lst = [unique_id, date, source, link]
             if not all(lst):
                 result = -1
@@ -106,7 +111,6 @@ class WxgzhTaskSpider(scrapy.Spider):
             item['origin'] = origin
             item['type'] = 'wxgzh'
             item['crawled'] = 0
-            item['tag'] = task['tag']
             item['location'] = task['location']
             redis_values.append(json.dumps({'item': dict(item)}))
         if redis_values:

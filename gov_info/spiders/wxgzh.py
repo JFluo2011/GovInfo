@@ -47,6 +47,11 @@ class WxgzhSpider(RedisSpider):
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
             'gov_info.middlewares.WxgzhSpiderMiddleware': 100,
         },
+        # redis
+        'SCHEDULER': "scrapy_redis.scheduler.Scheduler",
+        'DUPEFILTER_CLASS': "gov_info.common.utils.MyRFPDupeFilter",
+        'SCHEDULER_PERSIST': True,
+        'REDIS_START_URLS_AS_SET': True
     }
 
     # def start_requests(self):
@@ -63,15 +68,15 @@ class WxgzhSpider(RedisSpider):
         json_data = response.meta['json_data']
         item = GovInfoItem(json_data['item'])
         selector = etree.HTML(response.body)
-        title = response.xpath(r'//*[@id="activity-name"]/text()').extract_first(default=None)
-        if title is None:
+        title = response.xpath(r'//*[@id="activity-name"]/text()').extract_first(default='').strip()
+        if title == '':
             logging.error(f'{item["url"]}: get title failed')
             self.task_col.update({'unique_id': item['task_unique_id']}, {"$set": {'crawled': -1}})
             return
 
         regex = r'//*[@id="js_content"]'
         try:
-            content = response.xpath(regex).xpath('string(.)').extract_first('')
+            content = response.xpath(regex).xpath('string(.)').extract_first('').strip()
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
             self.task_col.update({'unique_id': item['task_unique_id']}, {"$set": {'crawled': -1}})
@@ -84,10 +89,10 @@ class WxgzhSpider(RedisSpider):
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
             return
-        item['summary'] = item['summary']
         if item['summary'] == '':
-            item['summary'] = content.strip()[:100]
+            item['summary'] = content[:100]
         item['content'] = content.decode('utf-8').replace('&#13;', '')
         item['title'] = title.strip()
         item['unique_id'] = item['unique_id']
+        item['crawled'] = 1
         yield item

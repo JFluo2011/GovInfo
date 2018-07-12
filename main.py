@@ -1,7 +1,10 @@
 from scrapy.cmdline import execute
 
 spiders = [
-    'scrapy crawl cdmbc',
+    'scrapy crawl cdht',
+    # 'scrapy crawl cdibi',
+    # 'scrapy crawl cdsme',
+    # 'scrapy crawl cdmbc',
     # 'scrapy crawl cdst',
     # 'scrapy crawl cdhrsip',
     # 'scrapy crawl wxgzh_task',

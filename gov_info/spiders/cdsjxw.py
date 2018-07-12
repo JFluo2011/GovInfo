@@ -15,6 +15,7 @@ from gov_info.common.utils import get_col
 class CdsjxwSpider(scrapy.Spider):
     name = 'cdsjxw'
     download_delay = 5
+    max_page = 5
     mongo_col = get_col(MONGODB_COLLECTION)
     mongo_col.ensure_index("unique_id", unique=True)
     base_url = 'http://www.cdgy.gov.cn'
@@ -48,7 +49,7 @@ class CdsjxwSpider(scrapy.Spider):
             raise Exception('get page count failed')
 
         referer = response.url
-        page_count = page_count if int(page_count) < 5 else 5
+        page_count = min(int(page_count), self.max_page)
         base_url = 'http://www.cdgy.gov.cn/cdsjxw/c132946/zwxx_{}.shtml'
         for i in range(2, int(page_count) + 1):
             headers = copy.deepcopy(self.headers)
@@ -63,9 +64,9 @@ class CdsjxwSpider(scrapy.Spider):
     def parse_page(self, response):
         regex = '//div[@class="newlist_left_cont"]/ul'
         for sel in response.xpath(regex):
-            link = sel.xpath(r'li[1]/a/@href').extract_first(default=None)
-            text = sel.xpath(r'li[2]/text()').extract_first(default=None)
-            title = sel.xpath(r'li[1]/a/@title').extract_first(default=None)
+            link = sel.xpath(r'li[1]/a/@href').extract_first(default='').strip()
+            text = sel.xpath(r'li[2]/text()').extract_first(default='').strip()
+            title = sel.xpath(r'li[1]/a/@title').extract_first(default='').strip()
             lst = [link, title, text]
             if not all(lst):
                 logging.warning(f'{response.url}.{link}: get data failed')
@@ -99,11 +100,11 @@ class CdsjxwSpider(scrapy.Spider):
         item = response.meta['item']
         regex = r'//div[@id="top"]'
         try:
-            content = response.xpath(regex).xpath('string(.)').extract_first(default='')
+            content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
         except Exception as err:
             regex = r'//div[@class="main-contshow"]'
             try:
-                content = response.xpath(regex).xpath('string(.)').extract_first(default='')
+                content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
             except Exception as err:
                 logging.error(f'{item["url"]}: get content failed')
                 return
@@ -111,7 +112,7 @@ class CdsjxwSpider(scrapy.Spider):
             logging.warning('content is none')
             return
         if item['summary'] == '':
-            item['summary'] = content.strip()[:100]
+            item['summary'] = content[:100]
         try:
             content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
         except Exception as err:
