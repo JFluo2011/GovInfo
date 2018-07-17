@@ -1,6 +1,7 @@
 import os
 import logging
 import random
+import hashlib
 from collections import namedtuple
 from logging.handlers import RotatingFileHandler
 
@@ -44,6 +45,12 @@ class MyRFPDupeFilter(object):
 
     def log(self, request, spider):
         pass
+
+
+def get_md5(txt):
+    m = hashlib.md5()
+    m.update(txt.encode('utf-8'))
+    return m.hexdigest()
 
 
 def get_col(col_name):

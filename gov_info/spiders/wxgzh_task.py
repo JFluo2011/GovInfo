@@ -6,12 +6,13 @@ import logging
 import copy
 import json
 
+import pymongo
 import scrapy
 from pymongo.errors import DuplicateKeyError
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import WXINFOS, MONGODB_COLLECTION
-from gov_info.common.utils import get_col, get_redis_client
+from gov_info.common.utils import get_col, get_redis_client, get_md5
 
 
 class WxgzhTaskSpider(scrapy.Spider):
@@ -19,9 +20,9 @@ class WxgzhTaskSpider(scrapy.Spider):
     download_delay = 5
     days = 5
     task_col = get_col('wxgzh_task')
-    task_col.ensure_index("unique_id", unique=True)
+    task_col.create_index([("unique_id", pymongo.DESCENDING), ('origin', pymongo.DESCENDING)], unique=True)
     mongo_col = get_col(MONGODB_COLLECTION)
-    mongo_col.ensure_index("unique_id", unique=True)
+    mongo_col.create_index([("unique_id", pymongo.DESCENDING), ('origin', pymongo.DESCENDING)], unique=True)
     redis_con = get_redis_client()
     redis_key = 'wxgzh'
     headers = {
@@ -91,18 +92,20 @@ class WxgzhTaskSpider(scrapy.Spider):
                 logging.warning(f'{url}: {params}.{link}: get data failed')
                 self.task_col.update({'_id': task['_id']}, {"$set": {'crawled': result}})
                 continue
-            if self.mongo_col.find_one({'unique_id': unique_id}):
-                logging.warning(f'{link} is already downloaded')
+            unique_id = get_md5(unique_id)
+            if self.mongo_col.find_one({'$and': [{'unique_id': unique_id}, {'origin': f'{origin}'}]}):
+                logging.warning(f'{url} is download already, unique_id: {unique_id}')
                 continue
             if task['name'] != name:
                 logging.warning(f'{url}: {params}.{link}: is not publish from {task["name"]}')
                 continue
-            link = link.replace('http', 'https')
-            item['url'] = link
+            url = link.replace('http', 'https')
+            item['url'] = url
             item['task_unique_id'] = task['unique_id']
             item['unique_id'] = unique_id
             try:
-                item['summary'] = sel.xpath(r'./div/p[@class="txt-info"]')[0].xpath('string(.)').extract_first('')
+                item['summary'] = sel.xpath(r'./div/p[@class="txt-info"]')[0].xpath(
+                    'string(.)').extract_first('').strip()
             except Exception as err:
                 logging.warning(f'{url}: {params}.{link}: get summary failed')
                 item['summary'] = ''

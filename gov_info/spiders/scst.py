@@ -3,12 +3,13 @@ import re
 import time
 import logging
 
+import pymongo
 import scrapy
 from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
-from gov_info.common.utils import get_col
+from gov_info.common.utils import get_col, get_md5
 
 
 class ScstSpider(scrapy.Spider):
@@ -16,7 +17,7 @@ class ScstSpider(scrapy.Spider):
     download_delay = 5
     max_page = 5
     mongo_col = get_col(MONGODB_COLLECTION)
-    mongo_col.ensure_index("unique_id", unique=True)
+    mongo_col.create_index([("unique_id", pymongo.DESCENDING), ('origin', pymongo.DESCENDING)], unique=True)
     start_urls = [
         'http://www.scst.gov.cn/tz/index.jhtml',
         'http://www.scst.gov.cn/gs/index.jhtml',
@@ -67,20 +68,20 @@ class ScstSpider(scrapy.Spider):
             if not all(lst):
                 logging.warning(f'{response.url}.{link}: get data failed')
                 continue
-            link = base_url + link
-            if self.mongo_col.find_one({'url': link}):
-                logging.warning(f'{link} is download already')
+            url = base_url + link
+            unique_id = get_md5(url)
+            if self.mongo_col.find_one({'$and': [{'unique_id': unique_id}, {'origin': f'{self.name}'}]}):
+                logging.warning(f'{url} is download already, unique_id: {unique_id}')
                 continue
             item = GovInfoItem()
-            item['url'] = link
-            item['unique_id'] = link
+            item['url'] = url
+            item['unique_id'] = unique_id
             item['title'] = title.strip()
-            item['summary'] = ''
             item['origin'] = self.name
             item['type'] = 'web'
             item['location'] = '四川省'
             item['crawled'] = 1
-            yield scrapy.FormRequest(link, method='GET', headers=self.headers,
+            yield scrapy.FormRequest(url, method='GET', headers=self.headers,
                                      meta={'item': item}, callback=self.parse_item)
 
     def parse_item(self, response):
@@ -103,16 +104,11 @@ class ScstSpider(scrapy.Spider):
         item['date'] = date
         selector = etree.HTML(response.body)
         regex = r'//div[@class="newsCon"]'
-        try:
-            content = response.xpath(regex)[0].xpath('string(.)').extract_first(default='').strip()
-        except Exception as err:
-            logging.error(f'{item["url"]}: get content failed')
-        else:
-            if content == '':
-                logging.warning('content is none')
-                return
-            if item['summary'] == '':
-                item['summary'] = content[:100]
-            content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
-            item['content'] = content.decode('utf-8').replace('&#13;', '')
-            yield item
+        content = response.xpath(regex)[0].xpath('string(.)').extract_first(default='').strip()
+        # if content == '':
+        #     logging.warning(f'{item["url"]}: content is none')
+        #     return
+        item['summary'] = content[:100] if (content != '') else item['title']
+        content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
+        item['content'] = content.decode('utf-8').replace('&#13;', '')
+        yield item

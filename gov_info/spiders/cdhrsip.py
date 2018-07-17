@@ -3,15 +3,15 @@ import re
 import time
 import copy
 import json
-from itertools import chain
 import logging
 
+import pymongo
 import scrapy
 from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
-from gov_info.common.utils import get_col
+from gov_info.common.utils import get_col, get_md5
 
 
 class CdhrsipSpider(scrapy.Spider):
@@ -19,7 +19,7 @@ class CdhrsipSpider(scrapy.Spider):
     download_delay = 5
     max_page = 5
     mongo_col = get_col(MONGODB_COLLECTION)
-    mongo_col.ensure_index("unique_id", unique=True)
+    mongo_col.create_index([("unique_id", pymongo.DESCENDING), ('origin', pymongo.DESCENDING)], unique=True)
     type_lst = ['001', '101']
     headers = {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -59,13 +59,15 @@ class CdhrsipSpider(scrapy.Spider):
         json_data = json.loads(response.body)
         records = json_data['records']
         for record in records:
-            unique_id = record['id']
             url = base_url.format(record['id'])
-            if self.mongo_col.find_one({'unique_id': unique_id}):
-                logging.warning(f'{url} is download already')
+            unique_id = get_md5(str(record['id']))
+            if self.mongo_col.find_one({'$and': [{'unique_id': unique_id}, {'origin': f'{self.name}'}]}):
+                logging.warning(f'{url} is download already, unique_id: {unique_id}')
                 continue
             selector = etree.HTML(record['content'])
             summary = selector.xpath('string(.)').strip()[:100]
+            summary = summary if (summary not in [b'', '']) else record['title']
+
             date = record['publishTime']
             if len(date) == 10:
                 now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))

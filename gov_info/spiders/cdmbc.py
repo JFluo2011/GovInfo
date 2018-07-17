@@ -3,16 +3,16 @@ import re
 import time
 import copy
 import json
-from itertools import chain
 import logging
 
+import pymongo
 import xmltodict
 import scrapy
 from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
-from gov_info.common.utils import get_col
+from gov_info.common.utils import get_col, get_md5
 
 
 class CdmbcSpider(scrapy.Spider):
@@ -20,7 +20,7 @@ class CdmbcSpider(scrapy.Spider):
     download_delay = 5
     max_page = 5
     mongo_col = get_col(MONGODB_COLLECTION)
-    mongo_col.ensure_index("unique_id", unique=True)
+    mongo_col.create_index([("unique_id", pymongo.DESCENDING), ('origin', pymongo.DESCENDING)], unique=True)
     headers = {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate',
@@ -84,9 +84,9 @@ class CdmbcSpider(scrapy.Spider):
                 logging.warning(f'{response.url}--{url}: get data failed')
                 continue
             date = row['cell'][1]
-            unique_id = url
-            if self.mongo_col.find_one({'unique_id': unique_id}):
-                logging.warning(f'{url} is download already')
+            unique_id = get_md5(url)
+            if self.mongo_col.find_one({'$and': [{'unique_id': unique_id}, {'origin': f'{self.name}'}]}):
+                logging.warning(f'{url} is download already, unique_id: {unique_id}')
                 continue
             date = date.strip('[').strip(']')
             if len(date) == 10:
@@ -108,21 +108,17 @@ class CdmbcSpider(scrapy.Spider):
         item = response.meta['item']
         selector = etree.HTML(response.body)
         regex = r'//div[@id="detail"]'
+        title = response.xpath(r'//div[@class="detailBox"]/h2/text()').extract_first(default='').strip()
+        content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
+        if (title == '') and (content == ''):
+            logging.warning(f'{item["url"]}: title and content is none')
+            return
+        item['summary'] = content[:100] if (content != '') else title
         try:
-            title = response.xpath(r'//div[@class="detailBox"]/h2/text()').extract_first(default='').strip()
-            content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
+            content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
-        else:
-            if (title == '') or (content == ''):
-                logging.warning('title or content is none')
-                return
-            item['summary'] = content[:100]
-            try:
-                content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
-            except Exception as err:
-                logging.error(f'{item["url"]}: get content failed')
-                return
-            item['content'] = content.decode('utf-8').replace('&#13;', '')
-            item['title'] = title
-            yield item
+            return
+        item['content'] = content.decode('utf-8').replace('&#13;', '')
+        item['title'] = title
+        yield item

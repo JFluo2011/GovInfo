@@ -27,7 +27,7 @@ class GovInfoPipeline(object):
         try:
             spider.mongo_col.insert(data)
         except Exception as err:
-            logging.error(str(err))
+            logging.error(f'{item["url"]}: {str(err)}')
         finally:
             DropItem()
 
@@ -49,7 +49,7 @@ class WxgzhTaskPipeline(object):
         try:
             spider.mongo_col.insert(data)
         except Exception as err:
-            logging.error(str(err))
+            logging.error(f'{item["url"]}: {str(err)}')
         finally:
             DropItem()
 
@@ -57,11 +57,11 @@ class WxgzhTaskPipeline(object):
 class WxgzhPipeline(object):
     def process_item(self, item, spider):
         try:
-            spider.mongo_col.update({'unique_id': item['unique_id']}, {
+            spider.mongo_col.update({'$and': [{'unique_id': item['unique_id']}, {'origin': item['origin']}]}, {
                 '$set': {'content': item['content'], 'title': item['title'], 'crawled': item['crawled'],
                          'summary': item['summary'], 'handled': 0}
             })
         except Exception as err:
-            logging.error(str(err))
+            logging.error(f'{item["url"]}: {str(err)}')
         finally:
             DropItem()

@@ -4,12 +4,13 @@ import copy
 import time
 import logging
 
+import pymongo
 import scrapy
 from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
-from gov_info.common.utils import get_col
+from gov_info.common.utils import get_col, get_md5
 
 
 class CdsjxwSpider(scrapy.Spider):
@@ -17,7 +18,7 @@ class CdsjxwSpider(scrapy.Spider):
     download_delay = 5
     max_page = 5
     mongo_col = get_col(MONGODB_COLLECTION)
-    mongo_col.ensure_index("unique_id", unique=True)
+    mongo_col.create_index([("unique_id", pymongo.DESCENDING), ('origin', pymongo.DESCENDING)], unique=True)
     base_url = 'http://www.cdgy.gov.cn'
     headers = {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -71,9 +72,16 @@ class CdsjxwSpider(scrapy.Spider):
             if not all(lst):
                 logging.warning(f'{response.url}.{link}: get data failed')
                 continue
-            link = self.base_url + link
-            if self.mongo_col.find_one({'url': link}):
-                logging.warning(f'{link} is download already')
+            if 'http' not in link:
+                url = self.base_url + link
+            else:
+                url = link
+            if 'cdgy.gov.cn' not in url:
+                logging.warning(f'{url} is out the domain')
+                continue
+            unique_id = get_md5(url)
+            if self.mongo_col.find_one({'$and': [{'unique_id': unique_id}, {'origin': f'{self.name}'}]}):
+                logging.warning(f'{url} is download already, unique_id: {unique_id}')
                 continue
             text = ''.join(text.split())
             text = re.sub(r'\s|:|：', '', text)
@@ -82,40 +90,35 @@ class CdsjxwSpider(scrapy.Spider):
                 now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 date += ' ' + now.split(' ')[-1]
             item = GovInfoItem()
-            item['url'] = link
-            item['unique_id'] = link
+            item['url'] = url
+            item['unique_id'] = unique_id
             item['title'] = title.strip()
-            item['summary'] = ''
             item['source'] = promulgator
             item['date'] = date
             item['origin'] = self.name
             item['type'] = 'web'
             item['location'] = '成都市'
             item['crawled'] = 1
-            yield scrapy.FormRequest(link, method='GET', headers=self.headers,
+            yield scrapy.FormRequest(url, method='GET', headers=self.headers,
                                      meta={'item': item}, callback=self.parse_item)
 
     def parse_item(self, response):
         selector = etree.HTML(response.body)
         item = response.meta['item']
-        regex = r'//div[@id="top"]'
-        try:
+        regexs = [
+            r'//div[@id="top"]',
+            r'//div[@class="main-show-txt"]'
+        ]
+        for regex in regexs:
             content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
-        except Exception as err:
-            regex = r'//div[@class="main-contshow"]'
+            item['summary'] = content[:100] if (content != '') else item['title']
             try:
-                content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
+                content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
             except Exception as err:
-                logging.error(f'{item["url"]}: get content failed')
-                return
-        if content == '':
-            logging.warning('content is none')
-            return
-        if item['summary'] == '':
-            item['summary'] = content[:100]
-        try:
-            content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
-        except Exception as err:
+                continue
+            else:
+                break
+        else:
             logging.error(f'{item["url"]}: get content failed')
             return
         item['content'] = content.decode('utf-8').replace('&#13;', '')

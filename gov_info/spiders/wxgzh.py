@@ -68,21 +68,12 @@ class WxgzhSpider(RedisSpider):
         json_data = response.meta['json_data']
         item = GovInfoItem(json_data['item'])
         selector = etree.HTML(response.body)
-        title = response.xpath(r'//*[@id="activity-name"]/text()').extract_first(default='').strip()
-        if title == '':
-            logging.error(f'{item["url"]}: get title failed')
-            self.task_col.update({'unique_id': item['task_unique_id']}, {"$set": {'crawled': -1}})
-            return
-
         regex = r'//*[@id="js_content"]'
-        try:
-            content = response.xpath(regex).xpath('string(.)').extract_first('').strip()
-        except Exception as err:
-            logging.error(f'{item["url"]}: get content failed')
+        title = response.xpath(r'//*[@id="activity-name"]/text()').extract_first(default='').strip()
+        content = response.xpath(regex).xpath('string(.)').extract_first('').strip()
+        if (content == '') and (title == ''):
+            logging.warning(f'{item["url"]}: title and content is none')
             self.task_col.update({'unique_id': item['task_unique_id']}, {"$set": {'crawled': -1}})
-            return
-        if content == '':
-            logging.warning('content is none')
             return
         try:
             content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
@@ -90,7 +81,7 @@ class WxgzhSpider(RedisSpider):
             logging.error(f'{item["url"]}: get content failed')
             return
         if item['summary'] == '':
-            item['summary'] = content[:100]
+            item['summary'] = content[:100] if (content != '') else item['title']
         item['content'] = content.decode('utf-8').replace('&#13;', '')
         item['title'] = title.strip()
         item['unique_id'] = item['unique_id']

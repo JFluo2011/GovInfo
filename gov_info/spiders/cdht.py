@@ -3,12 +3,13 @@ import re
 import time
 import logging
 
+import pymongo
 import scrapy
 from lxml import etree
 from gov_info.items import GovInfoItem
 
 from gov_info.settings import MONGODB_COLLECTION
-from gov_info.common.utils import get_col
+from gov_info.common.utils import get_col, get_md5
 
 
 class CdhtSpider(scrapy.Spider):
@@ -16,7 +17,7 @@ class CdhtSpider(scrapy.Spider):
     download_delay = 5
     max_page = 5
     mongo_col = get_col(MONGODB_COLLECTION)
-    mongo_col.ensure_index("unique_id", unique=True)
+    mongo_col.create_index([("unique_id", pymongo.DESCENDING), ('origin', pymongo.DESCENDING)], unique=True)
     headers = {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate',
@@ -62,46 +63,42 @@ class CdhtSpider(scrapy.Spider):
             if not all(lst):
                 logging.warning(f'{response.url}: get data failed')
                 continue
-            if self.mongo_col.find_one({'unique_id': link}):
-                logging.warning(f'{link} is download already')
+            url = link
+            unique_id = get_md5(link)
+            if self.mongo_col.find_one({'$and': [{'unique_id': unique_id}, {'origin': f'{self.name}'}]}):
+                logging.warning(f'{url} is download already, unique_id: {unique_id}')
                 continue
             date = date.strip('[').strip(']')
             if len(date) == 10:
                 now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
                 date += ' ' + now.split(' ')[-1]
             item = GovInfoItem()
-            item['url'] = link
-            item['unique_id'] = link
-            item['summary'] = ''
+            item['url'] = url
+            item['unique_id'] = unique_id
             item['source'] = source
             item['date'] = date
             item['origin'] = self.name
             item['type'] = 'web'
             item['location'] = '高新区'
             item['crawled'] = 1
-            yield scrapy.FormRequest(link, method='GET', headers=self.headers,
+            yield scrapy.FormRequest(url, method='GET', headers=self.headers,
                                      meta={'item': item}, callback=self.parse_item)
 
     def parse_item(self, response):
         selector = etree.HTML(response.body)
         item = response.meta['item']
         regex = r'//div[@id="d_content"]'
+        title = response.xpath(r'//div[@class="page"]/h1/text()').extract_first(default='').strip()
+        content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
+        if (title == '') and (content == ''):
+            logging.warning(f'{item["url"]}: title and content is none')
+            return
+        item['summary'] = content[:100] if (content != '') else title
         try:
-            title = response.xpath(r'//div[@class="page"]/h1/text()').extract_first(default='').strip()
-            content = response.xpath(regex).xpath('string(.)').extract_first(default='').strip()
+            content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
-        else:
-            if title == '' or content == '':
-                logging.warning('title or content is none')
-                return
-            if item['summary'] == '':
-                item['summary'] = content[:100]
-            try:
-                content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
-            except Exception as err:
-                logging.error(f'{item["url"]}: get content failed')
-                return
-            item['content'] = content.decode('utf-8').replace('&#13;', '')
-            item['title'] = title
-            yield item
+            return
+        item['content'] = content.decode('utf-8').replace('&#13;', '')
+        item['title'] = title
+        yield item
