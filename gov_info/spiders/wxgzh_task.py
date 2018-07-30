@@ -134,10 +134,11 @@ class WxgzhTaskSpider(scrapy.Spider):
         days = self.days
         while days >= 0:
             t = date.strftime("%Y-%m-%d")
+            unique_id = f'{wx_info.origin}-{t}'
             data = {
                 'url': url,
                 'name': wx_info.name,
-                'unique_id': f'{wx_info.origin}-{t}',
+                'unique_id': unique_id,
                 'origin': wx_info.origin,
                 'params': params,
                 'referer': wx_info.referer,
@@ -151,4 +152,5 @@ class WxgzhTaskSpider(scrapy.Spider):
                 self.task_col.insert(data)
             except DuplicateKeyError:
                 # logging.warning(f'task unique_id {wx_info.origin}-{t} already exists')
-                pass
+                if datetime.datetime.now().strftime("%Y-%m-%d") == t:
+                    self.task_col.update({'unique_id': unique_id}, {'$set': {'crawled': 0}})

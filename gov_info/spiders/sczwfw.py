@@ -101,11 +101,12 @@ class SczwfwSpider(scrapy.Spider):
         # if content == '':
         #     logging.warning(f'{item["url"]}: date or content is none')
         #     return
-        item['summary'] = content[:100] if (content != '') else item['title']
+        summary = content[:100] if (content != '') else item['title']
         try:
             content = etree.tostring(selector.xpath(regex)[0], encoding='utf-8')
         except Exception as err:
             logging.error(f'{item["url"]}: get content failed')
             return
-        item['content'] = content.decode('utf-8').replace('&#13;', '')
+        item['summary'] = summary.replace('&#13;', '').replace('em{font-style:normal;}', '')
+        item['content'] = content.decode('utf-8').replace('&#13;', '').replace('em{font-style:normal;}', '')
         yield item

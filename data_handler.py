@@ -86,7 +86,7 @@ class DataHandler:
         return status
 
     def insert_news(self, task, retry=5):
-        keys = 'mongodb_id, origin, summary, title, content, source, create_time, location, type'
+        keys = 'mongodb_id, origin, summary, title, content, source, create_time, location, type, source_url'
         values = ','.join(['%s' for _ in keys.split(',')])
         sql = f"""insert into {MYSQL_TABLE_NEWS}({keys}) values ({values});"""
         mongodb_id = str(task['_id'])
@@ -101,6 +101,7 @@ class DataHandler:
             date,
             task['location'],
             task['type'],
+            task['url'],
         ]
         self.execute(sql, args=args, operate='select', retry=retry)
 
